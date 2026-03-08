@@ -1,0 +1,28 @@
+{
+  "profile": "backend-service",
+  "description": "适用于 API 服务、微服务、任务调度服务、基础平台后端等以接口与稳定性为核心的项目。",
+  "variables": {
+    "PROJECT_TYPE": "Backend Service",
+    "PRIMARY_STACK": "Go / Java / Node Service + DB + Cache",
+    "DEPLOYMENT_MODE": "Docker",
+    "OWNER": "TBD",
+    "DEFAULT_LANGUAGE": "zh-CN"
+  },
+  "extraDirectories": [
+    "docs/api",
+    "docs/operations",
+    "generated/api",
+    "generated/architecture",
+    "generated/test",
+    "generated/benchmark"
+  ],
+  "includeGlobs": [],
+  "excludeGlobs": [],
+  "sync": {
+    "managedExtraGlobs": [],
+    "protectedPrefixes": [
+      "docs/api/",
+      "docs/operations/"
+    ]
+  }
+}

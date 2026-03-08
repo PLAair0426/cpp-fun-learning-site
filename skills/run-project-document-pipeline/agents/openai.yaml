@@ -1,0 +1,7 @@
+interface:
+  display_name: "Document Pipeline"
+  short_description: "Run the PRD-to-Spec document workflow"
+  icon_small: "./assets/icon-small.svg"
+  icon_large: "./assets/icon-large.svg"
+  brand_color: "#2563EB"
+  default_prompt: "Use $run-project-document-pipeline to run the PRD, Spec, and execution-document flow in the correct order."

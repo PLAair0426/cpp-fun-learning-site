@@ -1,0 +1,66 @@
+{
+  "name": "agent-project-template",
+  "version": "0.1.3",
+  "description": "Profile-driven AI/Agent project template CLI for bootstrap and sync workflows.",
+  "bin": {
+    "agent-project-template": "bin/agent-project-template.js"
+  },
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "templates/README.md",
+    "templates/template-manifest.json",
+    "templates/template-config.example.json",
+    "templates/commands/README.md",
+    "templates/commands/bootstrap-project-command.md",
+    "templates/commands/bootstrap-project.ps1",
+    "templates/commands/generate-execution-plan-command.md",
+    "templates/commands/generate-prd-command.md",
+    "templates/commands/generate-spec-command.md",
+    "templates/commands/init-full-template-command.md",
+    "templates/commands/node-cli-command.md",
+    "templates/commands/sync-template-command.md",
+    "templates/commands/sync-template.ps1",
+    "templates/commands/template-utils.ps1",
+    "templates/documents/",
+    "templates/profiles/",
+    "templates/prompts/",
+    "skills/README.md",
+    "skills/baseline.md",
+    "skills/catalog.md",
+    "skills/install-and-usage.md",
+    "skills/bootstrap-agent-project-template/",
+    "skills/manage-agent-project-template/",
+    "skills/run-project-document-pipeline/",
+    "skills/sync-agent-project-template/",
+    "specification/project-specification.md",
+    "CHANGELOG.md",
+    "README.md",
+    "AGENTS.md",
+    "assets/README.md",
+    "preparation/README.md",
+    "generated/README.md",
+    "docs/README.md"
+  ],
+  "scripts": {
+    "cli": "node ./bin/agent-project-template.js",
+    "profiles": "node ./bin/agent-project-template.js profiles",
+    "release:check": "npm pack --dry-run",
+    "release:patch": "npm version patch --no-git-tag-version",
+    "release:minor": "npm version minor --no-git-tag-version",
+    "release:major": "npm version major --no-git-tag-version",
+    "release:publish": "npm publish"
+  },
+  "keywords": [
+    "agent",
+    "template",
+    "cli",
+    "specification",
+    "project-scaffold"
+  ],
+  "license": "UNLICENSED"
+}

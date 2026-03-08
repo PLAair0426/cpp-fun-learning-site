@@ -1,0 +1,24 @@
+{
+  "project": {
+    "name": "{{PROJECT_NAME}}",
+    "slug": "{{PROJECT_SLUG}}",
+    "profile": "{{PROJECT_PROFILE}}"
+  },
+  "variables": {
+    "PROJECT_TYPE": "{{PROJECT_TYPE}}",
+    "PRIMARY_STACK": "{{PRIMARY_STACK}}",
+    "DEPLOYMENT_MODE": "{{DEPLOYMENT_MODE}}",
+    "OWNER": "{{OWNER}}",
+    "DEFAULT_LANGUAGE": "{{DEFAULT_LANGUAGE}}"
+  },
+  "scaffold": {
+    "extraDirectories": [
+      "docs/notes"
+    ],
+    "includeGlobs": [],
+    "excludeGlobs": [],
+    "protectedPrefixes": [
+      "docs/notes/"
+    ]
+  }
+}
