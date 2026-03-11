@@ -1,7 +1,0 @@
-interface:
-  display_name: "Sync Template"
-  short_description: "Preview and sync template upgrades safely"
-  icon_small: "./assets/icon-small.svg"
-  icon_large: "./assets/icon-large.svg"
-  brand_color: "#EA580C"
-  default_prompt: "Use $sync-agent-project-template to preview or apply safe template upgrades to an existing workspace."

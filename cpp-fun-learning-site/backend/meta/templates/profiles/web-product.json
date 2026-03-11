@@ -1,0 +1,28 @@
+﻿{
+  "profile": "web-product",
+  "description": "閫傜敤浜?Web 浜у搧銆丼aaS 骞冲彴銆佹暀鑲插钩鍙般€佸唴瀹瑰钩鍙扮瓑浠ヤ骇鍝佷綋楠屼负涓績鐨勯」鐩€?,
+  "variables": {
+    "PROJECT_TYPE": "Web Product",
+    "PRIMARY_STACK": "Frontend + API + Database",
+    "DEPLOYMENT_MODE": "Docker",
+    "OWNER": "TBD",
+    "DEFAULT_LANGUAGE": "zh-CN"
+  },
+  "extraDirectories": [
+    "frontend/content/docs/design",
+    "frontend/content/docs/operations",
+    "backend/meta/generated/ux",
+    "backend/meta/generated/analysis"
+  ],
+  "includeGlobs": [],
+  "excludeGlobs": [],
+  "sync": {
+    "managedExtraGlobs": [],
+    "protectedPrefixes": [
+      "frontend/content/docs/design/",
+      "frontend/content/docs/operations/"
+    ]
+  }
+}
+
+

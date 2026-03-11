@@ -1,0 +1,26 @@
+﻿{
+  "project": {
+    "name": "C++ 瓒ｅ懗瀛︿範缃戠珯",
+    "slug": "cpp-fun-learning-site",
+    "profile": "content-platform"
+  },
+  "variables": {
+    "PROJECT_TYPE": "Content Platform",
+    "PRIMARY_STACK": "Content Workflow + Web Frontend + API",
+    "DEPLOYMENT_MODE": "Docker",
+    "OWNER": "TBD",
+    "DEFAULT_LANGUAGE": "zh-CN"
+  },
+  "scaffold": {
+    "extraDirectories": [
+      "frontend/content/docs/notes"
+    ],
+    "includeGlobs": [],
+    "excludeGlobs": [],
+    "protectedPrefixes": [
+      "frontend/content/docs/notes/"
+    ]
+  }
+}
+
+

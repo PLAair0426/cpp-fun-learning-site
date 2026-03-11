@@ -1,7 +1,0 @@
-interface:
-  display_name: "Project Template Manager"
-  short_description: "Route bootstrap, pipeline, and sync workflows"
-  icon_small: "./assets/icon-small.svg"
-  icon_large: "./assets/icon-large.svg"
-  brand_color: "#4F46E5"
-  default_prompt: "Use $manage-agent-project-template to route a template task across bootstrap, document pipeline, or sync workflow."

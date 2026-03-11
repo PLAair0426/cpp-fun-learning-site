@@ -1,0 +1,30 @@
+﻿{
+  "profile": "backend-service",
+  "description": "閫傜敤浜?API 鏈嶅姟銆佸井鏈嶅姟銆佷换鍔¤皟搴︽湇鍔°€佸熀纭€骞冲彴鍚庣绛変互鎺ュ彛涓庣ǔ瀹氭€т负鏍稿績鐨勯」鐩€?,
+  "variables": {
+    "PROJECT_TYPE": "Backend Service",
+    "PRIMARY_STACK": "Go / Java / Node Service + DB + Cache",
+    "DEPLOYMENT_MODE": "Docker",
+    "OWNER": "TBD",
+    "DEFAULT_LANGUAGE": "zh-CN"
+  },
+  "extraDirectories": [
+    "frontend/content/docs/api",
+    "frontend/content/docs/operations",
+    "backend/meta/generated/api",
+    "backend/meta/generated/architecture",
+    "backend/meta/generated/test",
+    "backend/meta/generated/benchmark"
+  ],
+  "includeGlobs": [],
+  "excludeGlobs": [],
+  "sync": {
+    "managedExtraGlobs": [],
+    "protectedPrefixes": [
+      "frontend/content/docs/api/",
+      "frontend/content/docs/operations/"
+    ]
+  }
+}
+
+

@@ -1,7 +1,0 @@
-interface:
-  display_name: "Bootstrap Template"
-  short_description: "Initialize profile-driven project workspaces"
-  icon_small: "./assets/icon-small.svg"
-  icon_large: "./assets/icon-large.svg"
-  brand_color: "#0F766E"
-  default_prompt: "Use $bootstrap-agent-project-template to create a new profile-driven AI/Agent project workspace."

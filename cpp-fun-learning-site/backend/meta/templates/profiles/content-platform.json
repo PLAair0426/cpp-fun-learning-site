@@ -1,0 +1,31 @@
+﻿{
+  "profile": "content-platform",
+  "description": "閫傜敤浜庤绋嬨€佸獟浣撱€佸唴瀹逛腑鍙般€佺煡璇嗗簱涓庤繍钀ュ钩鍙扮瓑鍐呭椹卞姩鍨嬮」鐩€?,
+  "variables": {
+    "PROJECT_TYPE": "Content Platform",
+    "PRIMARY_STACK": "Content Workflow + Web Frontend + API",
+    "DEPLOYMENT_MODE": "Docker",
+    "OWNER": "TBD",
+    "DEFAULT_LANGUAGE": "zh-CN"
+  },
+  "extraDirectories": [
+    "frontend/content/docs/content",
+    "frontend/content/docs/seo",
+    "frontend/content/docs/operations",
+    "backend/meta/generated/content",
+    "backend/meta/generated/seo",
+    "backend/meta/generated/analysis"
+  ],
+  "includeGlobs": [],
+  "excludeGlobs": [],
+  "sync": {
+    "managedExtraGlobs": [],
+    "protectedPrefixes": [
+      "frontend/content/docs/content/",
+      "frontend/content/docs/seo/",
+      "frontend/content/docs/operations/"
+    ]
+  }
+}
+
+

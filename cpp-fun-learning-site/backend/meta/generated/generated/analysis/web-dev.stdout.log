@@ -1,0 +1,18 @@
+
+> cpp-fun-learning-web@0.2.0 dev
+> next dev --hostname 0.0.0.0 --port 3000 --port 3000
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+
+✓ Starting...
+Creating turbopack project {
+  dir: 'H:\\cppstudyweb\\examples\\cpp-fun-learning-site\\frontend',
+  testMode: true
+}
+✓ Ready in 1461ms
+ GET /problems 200 in 808ms (compile: 413ms, render: 395ms)
+ GET / 200 in 1742ms (compile: 187ms, render: 1556ms)
+ GET /problems 200 in 250ms (compile: 14ms, render: 236ms)
+ GET /paths/cpp-rookie-village 200 in 1309ms (compile: 1038ms, render: 271ms)

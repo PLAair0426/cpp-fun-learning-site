@@ -1,0 +1,109 @@
+﻿{
+  "templateVersion": "1.2.0",
+  "defaultProfile": "web-product",
+  "textExtensions": [
+    ".md",
+    ".txt",
+    ".json",
+    ".ps1",
+    ".yaml",
+    ".yml",
+    ".toml"
+  ],
+  "baseDirectories": [
+    "frontend/content/assets/raw",
+    "frontend/content/assets/research",
+    "backend/meta/preparation/intake",
+    "backend/meta/preparation/questions",
+    "backend/meta/preparation/decisions",
+    "backend/meta/templates/prompts",
+    "backend/meta/templates/commands",
+    "backend/meta/templates/documents",
+    "backend/meta/templates/profiles",
+    "backend/meta/generated/prd",
+    "backend/meta/generated/spec",
+    "backend/meta/generated/execution",
+    "backend/meta/generated/review",
+    "frontend/content/docs/product",
+    "frontend/content/docs/technical",
+    "frontend/content/docs/execution",
+    "backend/meta/specification",
+    "backend/meta/skills",
+    ".template"
+  ],
+  "frameworkDirectories": [
+    "bin",
+    "lib"
+  ],
+  "scaffoldGlobs": [
+    "README.md",
+    "AGENTS.md",
+    "frontend/content/assets/README.md",
+    "backend/meta/preparation/README.md",
+    "backend/meta/templates/README.md",
+    "backend/meta/templates/template-manifest.json",
+    "backend/meta/templates/template-config.example.json",
+    "backend/meta/templates/commands/*.md",
+    "backend/meta/templates/commands/*.ps1",
+    "backend/meta/templates/documents/*.md",
+    "backend/meta/templates/prompts/*.md",
+    "backend/meta/templates/profiles/*.json",
+    "backend/meta/templates/profiles/README.md",
+    "backend/meta/generated/README.md",
+    "frontend/content/docs/README.md",
+    "backend/meta/skills/README.md",
+    "backend/meta/specification/project-specification.md"
+  ],
+  "frameworkGlobs": [
+    "package.json",
+    "README.md",
+    "AGENTS.md",
+    "frontend/content/assets/README.md",
+    "backend/meta/preparation/README.md",
+    "backend/meta/templates/**",
+    "backend/meta/generated/README.md",
+    "frontend/content/docs/README.md",
+    "backend/meta/specification/project-specification.md",
+    "backend/meta/skills/**",
+    "bin/**",
+    "lib/**"
+  ],
+  "syncDefaults": {
+    "managedGlobs": [
+      "README.md",
+      "AGENTS.md",
+      "frontend/content/assets/README.md",
+      "backend/meta/preparation/README.md",
+      "backend/meta/templates/README.md",
+      "backend/meta/templates/template-manifest.json",
+      "backend/meta/templates/template-config.example.json",
+      "backend/meta/templates/commands/*.md",
+      "backend/meta/templates/commands/*.ps1",
+      "backend/meta/templates/documents/*.md",
+      "backend/meta/templates/prompts/*.md",
+      "backend/meta/templates/profiles/*.json",
+      "backend/meta/templates/profiles/README.md",
+      "backend/meta/generated/README.md",
+      "frontend/content/docs/README.md",
+      "backend/meta/skills/README.md",
+      "backend/meta/specification/project-specification.md"
+    ],
+    "protectedPrefixes": [
+      "frontend/content/assets/raw/",
+      "frontend/content/assets/research/",
+      "backend/meta/preparation/intake/",
+      "backend/meta/preparation/questions/",
+      "backend/meta/preparation/decisions/",
+      "backend/meta/generated/prd/",
+      "backend/meta/generated/spec/",
+      "backend/meta/generated/execution/",
+      "backend/meta/generated/review/",
+      "frontend/content/docs/product/",
+      "frontend/content/docs/technical/",
+      "frontend/content/docs/execution/"
+    ]
+  }
+}
+
+
+
