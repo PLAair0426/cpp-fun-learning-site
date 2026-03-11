@@ -91,6 +91,27 @@ export type SubmissionStatusResponse = {
   finishedAt?: string;
 };
 
+export type UserSummary = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+};
+
+export type AuthResponse = {
+  user: UserSummary;
+};
+
+export type UserSubmissionSummary = {
+  submissionId: string;
+  problemSlug: string;
+  problemTitle: string;
+  status: string;
+  result: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PathModule = {
   title: string;
   summary: string;

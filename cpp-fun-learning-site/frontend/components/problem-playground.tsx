@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Clock3,
   LoaderCircle,
@@ -55,10 +56,10 @@ type ProblemPlaygroundProps = {
 const phases = ["READY", "QUEUED", "RUNNING", "FINISHED"] as const;
 
 const phaseDescriptions: Record<(typeof phases)[number], string> = {
-  READY: "等待你点击运行或提交",
-  QUEUED: "任务已进入判题队列",
-  RUNNING: "正在编译并执行代码",
-  FINISHED: "结果已经写回控制台"
+  READY: "先补齐代码，再运行或正式提交。",
+  QUEUED: "任务已经进入判题队列，正在等待处理。",
+  RUNNING: "系统正在编译并执行你的代码。",
+  FINISHED: "结果已经返回，可以继续修正或进入下一题。"
 };
 
 function getFeedbackState(
@@ -72,17 +73,17 @@ function getFeedbackState(
       title: "请求异常",
       tone: "rose",
       icon: AlertTriangle,
-      summary: "接口请求或轮询过程中出现异常，请检查本地服务和网络状态。"
+      summary: error
     } as const;
   }
 
   if (submissionStatus) {
     if (submissionStatus.result === "ACCEPTED") {
       return {
-        title: "提交通过",
+        title: "正式提交通过",
         tone: "emerald",
         icon: CheckCircle2,
-        summary: "正式提交流程已经完成，这道题当前通过。"
+        summary: "这道题已经通过，个人记录也会同步累计到当前账号。"
       } as const;
     }
 
@@ -91,7 +92,7 @@ function getFeedbackState(
         title: "编译未通过",
         tone: "amber",
         icon: AlertTriangle,
-        summary: "请先修复语法、分号或括号问题，再重新提交。"
+        summary: "先修复语法或括号问题，再重新提交。"
       } as const;
     }
 
@@ -99,16 +100,16 @@ function getFeedbackState(
       title: "提交处理中",
       tone: "cyan",
       icon: Clock3,
-      summary: "任务已进入异步判题链路，请继续观察状态流转。"
+      summary: "系统正在处理你的正式提交，请继续观察状态流。"
     } as const;
   }
 
   if (submissionTicket) {
     return {
-      title: "排队中",
+      title: "已进入队列",
       tone: "cyan",
       icon: Clock3,
-      summary: "票据已创建，系统将通过 SSE 或轮询持续刷新结果。"
+      summary: "正式提交已经创建，系统会持续刷新判题状态。"
     } as const;
   }
 
@@ -118,7 +119,7 @@ function getFeedbackState(
         title: "试跑完成",
         tone: "emerald",
         icon: CheckCircle2,
-        summary: "本地试跑已经拿到结果，可以继续正式提交或推进下一任务。"
+        summary: "试跑结果已返回，可以继续优化后再正式提交。"
       } as const;
     }
 
@@ -127,7 +128,7 @@ function getFeedbackState(
         title: "试跑编译失败",
         tone: "amber",
         icon: AlertTriangle,
-        summary: "先根据编译信息修正代码，再重新运行。"
+        summary: "先根据编译信息修复代码，再继续运行。"
       } as const;
     }
   }
@@ -136,7 +137,7 @@ function getFeedbackState(
     title: "准备开始",
     tone: "slate",
     icon: TerminalSquare,
-    summary: "先补齐代码，再用快速运行验证逻辑，最后正式提交。"
+    summary: "推荐流程：先试跑验证逻辑，再登录后进行正式提交。"
   } as const;
 }
 
@@ -171,10 +172,14 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
     const poll = async () => {
       try {
         const response = await fetch(`${publicApiBaseUrl}${submissionTicket.nextPoll}`, {
+          credentials: "include",
           headers: { Accept: "application/json" }
         });
 
         if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("请先登录，再查看自己的提交状态。");
+          }
           throw new Error(`提交轮询失败：${response.status}`);
         }
 
@@ -184,7 +189,6 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
         }
 
         setSubmissionStatus(payload);
-
         if (payload.status !== "FINISHED") {
           timer = setTimeout(poll, 1200);
         }
@@ -206,7 +210,8 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
 
     if (typeof EventSource !== "undefined") {
       eventSource = new EventSource(
-        `${publicApiBaseUrl}/api/v1/submissions/${submissionTicket.submissionId}/stream`
+        `${publicApiBaseUrl}/api/v1/submissions/${submissionTicket.submissionId}/stream`,
+        { withCredentials: true }
       );
 
       eventSource.addEventListener("status", (event) => {
@@ -232,25 +237,21 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
 
     return () => {
       cancelled = true;
-      eventSource?.close();
       if (timer) {
         clearTimeout(timer);
       }
+      eventSource?.close();
     };
   }, [submissionTicket]);
 
-  const output = useMemo(() => {
+  const resultLines = useMemo(() => {
     if (submissionStatus) {
       return [
         `状态：${submissionStatus.status}`,
-        `结果：${submissionStatus.result}`,
-        `说明：${submissionStatus.detail}`,
-        `耗时：${submissionStatus.elapsedMs} ms`,
-        submissionStatus.stdout ? `输出：\n${submissionStatus.stdout}` : "",
-        submissionStatus.compileOutput ? `编译信息：\n${submissionStatus.compileOutput}` : ""
-      ]
-        .filter(Boolean)
-        .join("\n\n");
+        `结果：${submissionStatus.result || "待判定"}`,
+        submissionStatus.detail ? `说明：${submissionStatus.detail}` : "",
+        submissionStatus.finishedAt ? `完成时间：${submissionStatus.finishedAt}` : ""
+      ].filter(Boolean);
     }
 
     if (submissionTicket) {
@@ -258,33 +259,26 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
         `状态：${submissionTicket.status}`,
         `任务编号：${submissionTicket.submissionId}`,
         `排队位置：${submissionTicket.queuePosition}`,
-        `预计完成：${submissionTicket.etaSeconds}s`,
-        `轮询地址：${submissionTicket.nextPoll}`
-      ].join("\n");
+        `预计完成：${submissionTicket.etaSeconds}s`
+      ];
     }
 
     if (runResult) {
       return [
         `状态：${runResult.status}`,
-        `模式：${runResult.mode}`,
-        `耗时：${runResult.executionMs} ms`,
-        `内存：${runResult.memoryKb} KB`,
-        runResult.stdout ? `输出：\n${runResult.stdout}` : "",
-        runResult.compileOutput ? `编译信息：\n${runResult.compileOutput}` : ""
-      ]
-        .filter(Boolean)
-        .join("\n\n");
+        `运行耗时：${runResult.executionMs}ms`,
+        `内存占用：${runResult.memoryKb}KB`
+      ];
     }
 
-    return "控制台正在待命。点击“快速运行”可立即看到结果，点击“正式提交”可体验完整判题流程。";
+    return ["尚未开始运行。"];
   }, [runResult, submissionStatus, submissionTicket]);
 
-  const currentPhase = useMemo<(typeof phases)[number]>(() => {
+  const currentPhase = useMemo(() => {
     const status = submissionStatus?.status ?? submissionTicket?.status;
-    if (status && phases.includes(status as (typeof phases)[number])) {
-      return status as (typeof phases)[number];
-    }
-
+    if (status === "QUEUED") return "QUEUED";
+    if (status === "RUNNING") return "RUNNING";
+    if (status === "FINISHED") return "FINISHED";
     return "READY";
   }, [submissionStatus?.status, submissionTicket?.status]);
 
@@ -295,13 +289,13 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
 
   const feedbackTone =
     feedback.tone === "emerald"
-      ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+      ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-50"
       : feedback.tone === "amber"
-        ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
+        ? "border-amber-300/20 bg-amber-300/10 text-amber-50"
         : feedback.tone === "rose"
-          ? "border-rose-300/20 bg-rose-300/10 text-rose-100"
+          ? "border-rose-300/20 bg-rose-300/10 text-rose-50"
           : feedback.tone === "cyan"
-            ? "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
+            ? "border-cyan-300/20 bg-cyan-300/10 text-cyan-50"
             : "border-white/10 bg-white/5 text-slate-100";
 
   const FeedbackIcon = feedback.icon;
@@ -314,8 +308,10 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
     try {
       const response = await fetch(`${publicApiBaseUrl}/api/v1/${kind}`, {
         method: "POST",
+        credentials: "include",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          Accept: "application/json"
         },
         body: JSON.stringify({
           problemSlug: problem.slug,
@@ -326,6 +322,9 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("正式提交前请先登录或注册账号。");
+        }
         throw new Error(`请求失败：${response.status}`);
       }
 
@@ -377,16 +376,8 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
               <p className="mt-2 text-sm font-medium">{currentPhase}</p>
             </div>
             <div className="rounded-[20px] border border-white/10 bg-black/10 p-3">
-              <p className="text-xs uppercase tracking-[0.22em] opacity-70">建议动作</p>
-              <p className="mt-2 text-sm font-medium">
-                {feedback.tone === "emerald"
-                  ? "继续主线或切到下一题"
-                  : feedback.tone === "amber"
-                    ? "先修复编译与语法问题"
-                    : feedback.tone === "cyan"
-                      ? "等待最终判定返回"
-                      : "先运行再提交"}
-              </p>
+              <p className="text-xs uppercase tracking-[0.22em] opacity-70">阶段说明</p>
+              <p className="mt-2 text-sm font-medium">{phaseDescriptions[currentPhase]}</p>
             </div>
           </div>
         </div>
@@ -398,7 +389,7 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
                 href={recommendations.nextLesson.href}
                 className="rounded-[22px] border border-white/12 bg-black/10 p-4 transition hover:bg-black/20"
               >
-                <p className="text-xs uppercase tracking-[0.22em] opacity-70">下一课</p>
+                <p className="text-xs uppercase tracking-[0.22em] opacity-70">下一节课</p>
                 <p className="mt-2 text-sm font-medium">{recommendations.nextLesson.title}</p>
                 <p className="mt-2 text-xs opacity-80">{recommendations.nextLesson.label}</p>
               </Link>
@@ -420,7 +411,7 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
                 href={recommendations.pathHome.href}
                 className="rounded-[22px] border border-white/12 bg-black/10 p-4 transition hover:bg-black/20"
               >
-                <p className="text-xs uppercase tracking-[0.22em] opacity-70">主线路径</p>
+                <p className="text-xs uppercase tracking-[0.22em] opacity-70">返回路线</p>
                 <p className="mt-2 text-sm font-medium">{recommendations.pathHome.title}</p>
                 <p className="mt-2 text-xs opacity-80">{recommendations.pathHome.label}</p>
               </Link>
@@ -429,162 +420,125 @@ export function ProblemPlayground({ problem, recommendations }: ProblemPlaygroun
         ) : null}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="rounded-[28px] border border-white/8 bg-slate-950/55 p-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+        <div className="rounded-[30px] border border-white/8 bg-slate-950/55 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Judge Flow</p>
-              <p className="mt-2 text-sm leading-7 text-slate-300">
-                从本地试跑到异步提交，当前页面会完整展示判题状态变化。
-              </p>
+              <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Code Editor</p>
+              <h3 className="mt-2 text-xl font-semibold text-white">{problem.title}</h3>
             </div>
-            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
-              当前阶段：{currentPhase}
-            </span>
-          </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            {phases.map((phase, index) => {
-              const activeIndex = phases.indexOf(currentPhase);
-              const isReached = activeIndex >= index;
-              return (
-                <div
-                  key={phase}
-                  className={`rounded-[22px] border px-4 py-4 transition ${
-                    isReached
-                      ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
-                      : "border-white/8 bg-white/5 text-slate-400"
-                  }`}
-                >
-                  <p className="text-xs uppercase tracking-[0.28em]">{phase}</p>
-                  <p className="mt-2 text-sm leading-7">{phaseDescriptions[phase]}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="rounded-[28px] border border-white/8 bg-slate-950/55 p-4">
-          <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Action Panel</p>
-          <div className="mt-4 grid gap-3">
-            <button
-              type="button"
-              onClick={() => submit("run")}
-              disabled={loadingMode !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/12 px-4 py-3 text-sm font-medium text-cyan-50 transition hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loadingMode === "run" ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-              快速运行
-            </button>
-
-            <button
-              type="button"
-              onClick={() => submit("submit")}
-              disabled={loadingMode !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-violet-300/30 bg-violet-300/12 px-4 py-3 text-sm font-medium text-violet-50 transition hover:bg-violet-300/20 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loadingMode === "submit" ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              正式提交
-            </button>
-
-            <button
-              type="button"
-              onClick={resetPlayground}
-              disabled={loadingMode !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-3 text-sm font-medium text-slate-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <RotateCcw className="h-4 w-4" />
-              重置代码
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-3">
-            <div className="rounded-[20px] border border-white/8 bg-white/5 p-3">
-              <div className="flex items-center gap-2 text-cyan-100">
-                <Timer className="h-4 w-4" />
-                <p className="text-xs uppercase tracking-[0.22em]">执行观察</p>
-              </div>
-              <p className="mt-2 text-sm leading-7 text-slate-300">
-                先看运行结果，再决定是否进入正式提交。
-              </p>
-            </div>
-            <div className="rounded-[20px] border border-white/8 bg-white/5 p-3">
-              <div className="flex items-center gap-2 text-slate-100">
-                <Clock3 className="h-4 w-4 text-violet-100" />
-                <p className="text-xs uppercase tracking-[0.22em]">提交模式</p>
-              </div>
-              <p className="mt-2 text-sm leading-7 text-slate-300">
-                会展示队列、运行和完成三个阶段，更接近真实线上判题体验。
-              </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void submit("run");
+                }}
+                disabled={loadingMode !== null}
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-50 transition hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingMode === "run" ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                试跑
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void submit("submit");
+                }}
+                disabled={loadingMode !== null}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-50 transition hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingMode === "submit" ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                正式提交
+              </button>
+              <button
+                type="button"
+                onClick={resetPlayground}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-slate-100 transition hover:border-white/20 hover:bg-white/5"
+              >
+                <RotateCcw className="h-4 w-4" />
+                重置
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <label className="block rounded-[28px] border border-white/8 bg-slate-950/55 p-4">
-          <span className="text-xs uppercase tracking-[0.28em] text-slate-400">Source Code</span>
           <textarea
             value={sourceCode}
             onChange={(event) => setSourceCode(event.target.value)}
+            className="mt-5 min-h-[420px] w-full rounded-[26px] border border-white/8 bg-[#07111f] px-4 py-4 font-mono text-sm leading-7 text-cyan-50 outline-none transition focus:border-cyan-300/30"
             spellCheck={false}
-            className="mt-4 h-[420px] w-full resize-none rounded-[22px] border border-white/8 bg-[#070b14] p-4 text-sm leading-7 text-cyan-100 outline-none transition focus:border-cyan-300/25"
           />
-        </label>
+        </div>
 
         <div className="grid gap-4">
-          <label className="block rounded-[28px] border border-white/8 bg-slate-950/55 p-4">
-            <span className="text-xs uppercase tracking-[0.28em] text-slate-400">
-              Standard Input
-            </span>
-            <textarea
-              value={stdin}
-              onChange={(event) => setStdin(event.target.value)}
-              spellCheck={false}
-              className="mt-4 h-32 w-full resize-none rounded-[22px] border border-white/8 bg-[#070b14] p-4 text-sm leading-7 text-emerald-100 outline-none transition focus:border-emerald-300/25"
-            />
-          </label>
-
-          <div className="rounded-[28px] border border-white/8 bg-slate-950/55 p-4">
-            <div className="flex items-center gap-3 text-slate-200">
+          <div className="rounded-[30px] border border-white/8 bg-white/5 p-5">
+            <div className="flex items-center gap-3 text-slate-100">
               <TerminalSquare className="h-5 w-5 text-cyan-100" />
-              <p className="text-sm font-medium">Runner Checklist</p>
+              <p className="text-sm font-medium">输入与输出</p>
             </div>
-            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-              <li>确认函数名、返回值和题目要求一致。</li>
-              <li>如果题目有输入，先在右侧输入框填好测试数据。</li>
-              <li>提交前先快速运行一次，更容易定位编译错误。</li>
-            </ul>
+
+            <label className="mt-4 grid gap-2">
+              <span className="text-xs uppercase tracking-[0.22em] text-slate-400">标准输入</span>
+              <textarea
+                value={stdin}
+                onChange={(event) => setStdin(event.target.value)}
+                className="min-h-[120px] rounded-[20px] border border-white/8 bg-slate-950/55 px-4 py-3 font-mono text-sm text-slate-100 outline-none transition focus:border-cyan-300/30"
+              />
+            </label>
+
+            <div className="mt-5 rounded-[20px] border border-white/8 bg-slate-950/55 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">结果摘要</p>
+              <div className="mt-3 space-y-2 text-sm leading-7 text-slate-200">
+                {resultLines.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[30px] border border-white/8 bg-white/5 p-5">
+            <div className="flex items-center gap-3 text-slate-100">
+              <Timer className="h-5 w-5 text-amber-100" />
+              <p className="text-sm font-medium">输出详情</p>
+            </div>
+
+            <div className="mt-4 grid gap-4">
+              <div className="rounded-[20px] border border-white/8 bg-slate-950/55 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Stdout</p>
+                <pre className="mt-3 whitespace-pre-wrap font-mono text-sm leading-7 text-slate-100">
+                  {submissionStatus?.stdout || runResult?.stdout || "暂无输出"}
+                </pre>
+              </div>
+              <div className="rounded-[20px] border border-white/8 bg-slate-950/55 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Compile Output</p>
+                <pre className="mt-3 whitespace-pre-wrap font-mono text-sm leading-7 text-slate-100">
+                  {submissionStatus?.compileOutput || runResult?.compileOutput || "暂无编译信息"}
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[30px] border border-dashed border-white/12 bg-white/5 p-5 text-sm leading-7 text-slate-300">
+            正式提交需要登录账号。登录后，提交记录、状态流和通过结果都会绑定到当前用户，其他使用者无法访问。
+            <div className="mt-4">
+              <Link
+                href="/auth"
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-white transition hover:border-white/20 hover:bg-white/5"
+              >
+                去登录 / 注册
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="rounded-[28px] border border-white/8 bg-slate-950/55 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Console Output</p>
-            <p className="mt-2 text-sm leading-7 text-slate-300">
-              这里会显示编译信息、运行输出和提交后的最终判定结果。
-            </p>
-          </div>
-          {error ? (
-            <span className="rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1 text-xs text-rose-100">
-              请求异常
-            </span>
-          ) : null}
-        </div>
-
-        <pre className="mt-4 min-h-56 overflow-x-auto rounded-[22px] border border-white/8 bg-[#05070d] p-4 text-sm leading-7 text-slate-200">
-          <code>{error || output}</code>
-        </pre>
       </div>
     </div>
   );

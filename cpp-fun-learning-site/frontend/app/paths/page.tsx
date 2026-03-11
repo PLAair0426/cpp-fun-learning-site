@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Compass, Layers3, Sparkles, Trophy } from "lucide-react";
 import { SectionTitle } from "../../components/section-title";
-import { getPath, getPaths, getProgressOverview } from "../../lib/api";
+import { getPath, getPaths, getProgressOverview } from "../../lib/server-api";
 
 export default async function PathsPage() {
   const [paths, progress] = await Promise.all([getPaths(), getProgressOverview()]);

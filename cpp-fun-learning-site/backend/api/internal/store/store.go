@@ -1,6 +1,7 @@
 package store
 
 import (
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -8,6 +9,7 @@ import (
 )
 
 type Store struct {
+	mu          sync.RWMutex
 	home        HomeResponse
 	paths       []PathDetail
 	problems    []ProblemDetail
@@ -15,6 +17,9 @@ type Store struct {
 	progress    ProgressOverview
 	db          *pgxpool.Pool
 	redis       *redis.Client
+	usersByID   map[string]UserAccount
+	usersByMail map[string]memoryUser
+	sessions    map[string]SessionRecord
 }
 
 type HomeResponse struct {
@@ -1509,9 +1514,9 @@ int main() {
 
 	home := HomeResponse{
 		Hero: HeroSection{
-			Eyebrow:  "C++ Gameified Learning",
-			Title:    "把基础课件扩成可闯关、可练习、可本地跑通的学习地图",
-			Subtitle: "本轮已根据 DOCX 补全环境准备、输入输出、变量常量、运算符、控制流、函数、指针与 Linux 工具链等模块，首页、路径页和题库页都会直接展示扩展后的内容。",
+			Eyebrow:         "C++ Gameified Learning",
+			Title:           "把基础课件扩成可闯关、可练习、可本地跑通的学习地图",
+			Subtitle:        "本轮已根据 DOCX 补全环境准备、输入输出、变量常量、运算符、控制流、函数、指针与 Linux 工具链等模块，首页、路径页和题库页都会直接展示扩展后的内容。",
 			PrimaryAction:   ActionLink{Label: "开始刷路径", Href: "/paths/cpp-rookie-village"},
 			SecondaryAction: ActionLink{Label: "打开题库", Href: "/problems"},
 			Metrics: []HeroMetric{
@@ -1582,6 +1587,9 @@ int main() {
 		problems:    problems,
 		leaderboard: leaderboard,
 		progress:    progress,
+		usersByID:   make(map[string]UserAccount),
+		usersByMail: make(map[string]memoryUser),
+		sessions:    make(map[string]SessionRecord),
 	}
 }
 

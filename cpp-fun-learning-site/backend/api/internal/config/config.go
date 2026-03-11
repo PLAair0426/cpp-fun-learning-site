@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 type Config struct {
 	AppEnv          string
@@ -10,6 +13,8 @@ type Config struct {
 	RedisAddr       string
 	Judge0URL       string
 	EnableMockJudge bool
+	SessionTTLHours int
+	SessionCookie   string
 }
 
 func Load() Config {
@@ -21,6 +26,8 @@ func Load() Config {
 		RedisAddr:       envOr("REDIS_ADDR", ""),
 		Judge0URL:       envOr("JUDGE0_URL", ""),
 		EnableMockJudge: envOr("ENABLE_MOCK_JUDGE", "true") != "false",
+		SessionTTLHours: envIntOr("SESSION_TTL_HOURS", 720),
+		SessionCookie:   envOr("SESSION_COOKIE_NAME", "cppstudy_session"),
 	}
 }
 
@@ -30,4 +37,17 @@ func envOr(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func envIntOr(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+
+	var parsed int
+	if _, err := fmt.Sscanf(value, "%d", &parsed); err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }

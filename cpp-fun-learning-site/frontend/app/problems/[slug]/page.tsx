@@ -12,7 +12,7 @@ import {
 import { notFound } from "next/navigation";
 import { ProblemPlayground } from "../../../components/problem-playground";
 import { SectionTitle } from "../../../components/section-title";
-import { getPath, getProblem, getProblems, getProgressOverview } from "../../../lib/api";
+import { getPath, getProblem, getProblems, getProgressOverview } from "../../../lib/server-api";
 
 type Params = Promise<{ slug: string }>;
 

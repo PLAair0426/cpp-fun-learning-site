@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	leaderboardKey      = "cppstudy:leaderboard:xp"
-	leaderboardProfile  = "cppstudy:leaderboard:profile:%s"
-	submissionHashKey   = "cppstudy:submission:%s"
-	submissionPending   = "cppstudy:submission:pending"
-	submissionEventLog  = "cppstudy:submission:events"
-	submissionSeenKey   = "cppstudy:submission:queued:%s"
-	submissionCacheTTL  = 7 * 24 * time.Hour
+	leaderboardKey     = "cppstudy:leaderboard:xp"
+	leaderboardProfile = "cppstudy:leaderboard:profile:%s"
+	submissionHashKey  = "cppstudy:submission:%s"
+	submissionPending  = "cppstudy:submission:pending"
+	submissionEventLog = "cppstudy:submission:events"
+	submissionSeenKey  = "cppstudy:submission:queued:%s"
+	submissionCacheTTL = 7 * 24 * time.Hour
 )
 
 func (s *Store) ConnectRedis(ctx context.Context, addr string) error {

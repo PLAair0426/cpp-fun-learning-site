@@ -1,6 +1,6 @@
 import { ProblemCatalog } from "../../components/problem-catalog";
 import { SectionTitle } from "../../components/section-title";
-import { getPath, getProblems, getProgressOverview } from "../../lib/api";
+import { getPath, getProblems, getProgressOverview } from "../../lib/server-api";
 
 function extractProblemSlugsFromActions(actions: string[]) {
   return actions.flatMap((item) => {

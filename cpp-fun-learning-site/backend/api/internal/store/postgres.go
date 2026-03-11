@@ -34,6 +34,12 @@ func (s *Store) ConnectPostgres(ctx context.Context, dsn string) error {
 
 	s.db = pool
 
+	if err := s.ensureOperationalSchema(ctx); err != nil {
+		pool.Close()
+		s.db = nil
+		return err
+	}
+
 	if err := s.seedStructuredContent(ctx); err != nil {
 		pool.Close()
 		s.db = nil
@@ -44,6 +50,32 @@ func (s *Store) ConnectPostgres(ctx context.Context, dsn string) error {
 		pool.Close()
 		s.db = nil
 		return err
+	}
+
+	return nil
+}
+
+func (s *Store) ensureOperationalSchema(ctx context.Context) error {
+	statements := []string{
+		`create table if not exists users (
+			id text primary key,
+			name text not null,
+			email text not null unique,
+			password_hash text not null,
+			created_at timestamptz not null default now()
+		)`,
+		`create table if not exists user_sessions (
+			token text primary key,
+			user_id text not null references users(id) on delete cascade,
+			created_at timestamptz not null default now(),
+			expires_at timestamptz not null
+		)`,
+	}
+
+	for _, statement := range statements {
+		if _, err := s.db.Exec(ctx, statement); err != nil {
+			return err
+		}
 	}
 
 	return nil

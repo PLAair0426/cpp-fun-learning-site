@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { Binary, Layers3, Terminal } from "lucide-react";
+import { Binary, LockKeyhole, Sparkles } from "lucide-react";
+import { getCurrentUser } from "../lib/server-api";
 
-export function SiteChrome({ children }: { children: React.ReactNode }) {
+export async function SiteChrome({ children }: { children: React.ReactNode }) {
+  const currentUser = await getCurrentUser();
+
   return (
     <div className="relative isolate min-h-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-[-120px] h-[420px] bg-[radial-gradient(circle_at_top,rgba(69,217,255,0.16),transparent_62%)]" />
@@ -41,13 +44,16 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
               >
                 题库练习
               </Link>
-              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">
-                <Layers3 className="h-4 w-4" />
-                Next.js + Go + Docker
-              </span>
+              <Link
+                href="/auth"
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/15"
+              >
+                <LockKeyhole className="h-4 w-4" />
+                {currentUser ? currentUser.name : "登录 / 注册"}
+              </Link>
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100">
-                <Terminal className="h-4 w-4" />
-                Linux 支线已预留
+                <Sparkles className="h-4 w-4" />
+                {currentUser ? "个人记录已隔离" : "登录后开启个人记录"}
               </span>
             </nav>
           </div>
@@ -56,7 +62,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
         <main className="flex-1 py-6">{children}</main>
 
         <footer className="px-2 pb-8 pt-4 text-sm text-slate-400">
-          这是一套基于文档资产驱动的教学站点示例：路径、课程、练习、成长系统与运行反馈统一在一套工程中。
+          这里聚合了学习路线、课程内容、题库练习与个人成长记录，帮助你按自己的节奏持续推进 C++ 学习。
         </footer>
       </div>
     </div>

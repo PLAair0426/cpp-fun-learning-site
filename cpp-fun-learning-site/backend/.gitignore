@@ -2,4 +2,5 @@
 .DS_Store
 Thumbs.db
 meta/generated/analysis/*.log
+meta/generated/**/*.log
 deployments/.web-dev.pid

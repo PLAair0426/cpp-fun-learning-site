@@ -1,4 +1,4 @@
-﻿package httpapi
+package httpapi
 
 import (
 	"encoding/json"
@@ -76,6 +76,12 @@ func (s *Server) Router() http.Handler {
 	r.Get("/healthz", s.handleHealth)
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/register", s.handleRegister)
+			r.Post("/login", s.handleLogin)
+			r.Post("/logout", s.handleLogout)
+			r.Get("/me", s.handleCurrentUser)
+		})
 		r.Get("/home", s.handleHome)
 		r.Get("/paths", s.handlePaths)
 		r.Get("/paths/{slug}", s.handlePath)
@@ -86,6 +92,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/progress/overview", s.handleProgressOverview)
 		r.Post("/run", s.handleRun)
 		r.Post("/submit", s.handleSubmit)
+		r.Get("/submissions", s.handleCurrentUserSubmissions)
 		r.Get("/submissions/{submissionID}", s.handleSubmissionStatus)
 		r.Get("/submissions/{submissionID}/stream", s.handleSubmissionStream)
 	})
@@ -98,6 +105,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", s.cfg.CORSOrigin)
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -174,7 +182,12 @@ func (s *Server) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleProgressOverview(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.GetProgressOverview())
+	user, ok := s.currentUser(r)
+	if !ok {
+		writeJSON(w, http.StatusOK, s.store.GetProgressOverviewForUser(""))
+		return
+	}
+	writeJSON(w, http.StatusOK, s.store.GetProgressOverviewForUser(user.ID))
 }
 
 func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +215,11 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+
 	var req RunRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -216,15 +234,16 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 	submissionID := fmt.Sprintf("sub_%d", time.Now().UnixNano())
 	now := time.Now()
 	record := store.SubmissionRecord{
-		ID:            submissionID,
-		ProblemSlug:   req.ProblemSlug,
-		SubmitType:    "submit",
-		Language:      req.Language,
-		SourceCode:    req.SourceCode,
-		Input:         req.Input,
-		Status:        "QUEUED",
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:          submissionID,
+		ProblemSlug: req.ProblemSlug,
+		UserID:      user.ID,
+		SubmitType:  "submit",
+		Language:    req.Language,
+		SourceCode:  req.SourceCode,
+		Input:       req.Input,
+		Status:      "QUEUED",
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	s.saveSubmission(record)
 
@@ -246,9 +265,18 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSubmissionStatus(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+
 	submissionID := chi.URLParam(r, "submissionID")
 	record, ok := s.loadCurrentSubmission(submissionID)
 	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "submission not found"})
+		return
+	}
+	if record.UserID != user.ID {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "submission not found"})
 		return
 	}
@@ -272,9 +300,18 @@ func (s *Server) handleSubmissionStatus(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleSubmissionStream(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+
 	submissionID := chi.URLParam(r, "submissionID")
 	record, ok := s.loadCurrentSubmission(submissionID)
 	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "submission not found"})
+		return
+	}
+	if record.UserID != user.ID {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "submission not found"})
 		return
 	}
@@ -545,5 +582,3 @@ func simulateRun(req RunRequest) (stdout string, compileOutput string, status st
 		return "Mock runner accepted the code and returned instant feedback.", "", "RUN_FINISHED"
 	}
 }
-
-

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, ShieldAlert } from "lucide-react";
 import { notFound } from "next/navigation";
 import { SectionTitle } from "../../../components/section-title";
-import { getPath } from "../../../lib/api";
+import { getPath } from "../../../lib/server-api";
 
 type Params = Promise<{ slug: string }>;
 
