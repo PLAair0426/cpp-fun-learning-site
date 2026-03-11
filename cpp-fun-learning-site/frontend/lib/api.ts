@@ -131,6 +131,12 @@ export type AdminUserDetail = UserSummary & {
   lastActiveAt?: string;
 };
 
+export type AdminContentCatalog = {
+  paths: PathSummary[];
+  lessons: Lesson[];
+  problems: ProblemSummary[];
+};
+
 export type PathModule = {
   title: string;
   summary: string;

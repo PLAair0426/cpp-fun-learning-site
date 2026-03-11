@@ -125,9 +125,7 @@ func (s *Store) seedDocuments(ctx context.Context) error {
 			ctx,
 			`insert into content_documents (doc_key, payload)
 			 values ($1, $2)
-			 on conflict (doc_key) do update
-			 set payload = excluded.payload,
-			     updated_at = now()`,
+			 on conflict (doc_key) do nothing`,
 			key,
 			encoded,
 		)
@@ -311,6 +309,25 @@ func (s *Store) readDocument(key string, target any) bool {
 	}
 
 	return true
+}
+
+func (s *Store) writeDocument(ctx context.Context, key string, payload any) error {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec(
+		ctx,
+		`insert into content_documents (doc_key, payload)
+		 values ($1, $2)
+		 on conflict (doc_key) do update
+		 set payload = excluded.payload,
+		     updated_at = now()`,
+		key,
+		encoded,
+	)
+	return err
 }
 
 func uniqueLessons(paths []PathDetail) []Lesson {

@@ -86,6 +86,9 @@ func (s *Server) Router() http.Handler {
 			r.Get("/overview", s.handleAdminOverview)
 			r.Get("/users", s.handleAdminUsers)
 			r.Patch("/users/{userID}", s.handleAdminUpdateUserStatus)
+			r.Get("/content", s.handleAdminContentCatalog)
+			r.Post("/content/problems", s.handleAdminCreateProblem)
+			r.Post("/content/paths", s.handleAdminCreatePath)
 		})
 		r.Get("/home", s.handleHome)
 		r.Get("/paths", s.handlePaths)
@@ -109,7 +112,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", s.cfg.CORSOrigin)
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == http.MethodOptions {

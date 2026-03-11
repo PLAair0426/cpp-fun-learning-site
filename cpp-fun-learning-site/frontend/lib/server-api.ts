@@ -2,6 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 import type {
+  AdminContentCatalog,
   AdminOverview,
   AdminUserDetail,
   AuthResponse,
@@ -165,6 +166,20 @@ export async function getAdminUsers(): Promise<AdminUserDetail[]> {
     }
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return [];
+    }
+    throw error;
+  }
+}
+
+export async function getAdminContent(): Promise<AdminContentCatalog | null> {
+  try {
+    return await fetchServerApi<AdminContentCatalog>("/api/v1/admin/content");
+  } catch (error) {
+    if (error instanceof Error && (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN")) {
+      return null;
+    }
+    if (error instanceof Error && error.message.startsWith("API request failed: 403")) {
+      return null;
     }
     throw error;
   }

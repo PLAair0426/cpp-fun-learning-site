@@ -490,10 +490,12 @@ func (s *Store) SetUserActive(userID string, isActive bool) error {
 }
 
 func (s *Store) GetAdminOverview() AdminOverview {
+	paths := s.currentPaths()
+	problems := s.currentProblems()
 	overview := AdminOverview{
-		TotalPaths:    len(s.paths),
-		TotalLessons:  len(uniqueLessons(s.paths)),
-		TotalProblems: len(s.problems),
+		TotalPaths:    len(paths),
+		TotalLessons:  len(flattenLessonsStable(paths)),
+		TotalProblems: len(problems),
 	}
 
 	if s.db != nil {
