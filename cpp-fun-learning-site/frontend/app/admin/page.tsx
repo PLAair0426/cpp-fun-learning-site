@@ -3,7 +3,13 @@ import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { AdminDashboard } from "../../components/admin-dashboard";
 import { AuthPanel } from "../../components/auth-panel";
 import { SectionTitle } from "../../components/section-title";
-import { getAdminContent, getAdminOverview, getAdminUsers, getCurrentUser } from "../../lib/server-api";
+import {
+  getAdminActivity,
+  getAdminContent,
+  getAdminOverview,
+  getAdminUsers,
+  getCurrentUser
+} from "../../lib/server-api";
 
 export default async function AdminPage() {
   const currentUser = await getCurrentUser();
@@ -47,7 +53,12 @@ export default async function AdminPage() {
     );
   }
 
-  const [overview, users, content] = await Promise.all([getAdminOverview(), getAdminUsers(), getAdminContent()]);
+  const [overview, users, content, activity] = await Promise.all([
+    getAdminOverview(),
+    getAdminUsers(),
+    getAdminContent(),
+    getAdminActivity()
+  ]);
   if (!overview || !content) {
     return null;
   }
@@ -67,7 +78,7 @@ export default async function AdminPage() {
         </p>
       </section>
 
-      <AdminDashboard overview={overview} users={users} content={content} />
+      <AdminDashboard overview={overview} users={users} content={content} activity={activity} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  type AdminActivityEntry,
   publicApiBaseUrl,
   type AdminContentCatalog,
   type AdminOverview,
@@ -12,6 +13,7 @@ type AdminDashboardProps = {
   overview: AdminOverview;
   users: AdminUserDetail[];
   content: AdminContentCatalog;
+  activity: AdminActivityEntry[];
 };
 
 type AdminMutationResponse = {
@@ -19,6 +21,7 @@ type AdminMutationResponse = {
   error?: string;
   overview: AdminOverview;
   content: AdminContentCatalog;
+  activity?: AdminActivityEntry[];
 };
 
 type ProblemFormState = {
@@ -117,11 +120,13 @@ const defaultPathForm = (): PathFormState => ({
   modules: [defaultModuleDraft()]
 });
 
-export function AdminDashboard({ overview, users, content }: AdminDashboardProps) {
+export function AdminDashboard({ overview, users, content, activity }: AdminDashboardProps) {
   const [overviewState, setOverviewState] = useState(overview);
   const [items, setItems] = useState(users);
   const [contentState, setContentState] = useState(content);
+  const [activityState, setActivityState] = useState(activity);
   const [busyUserId, setBusyUserId] = useState("");
+  const [busyDeleteKey, setBusyDeleteKey] = useState("");
   const [userQuery, setUserQuery] = useState("");
   const [userFilter, setUserFilter] = useState<"all" | "active" | "inactive" | "admin">("all");
   const [message, setMessage] = useState("");
@@ -188,7 +193,7 @@ export function AdminDashboard({ overview, users, content }: AdminDashboardProps
         body: JSON.stringify({ isActive: !user.isActive })
       });
 
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; activity?: AdminActivityEntry[] };
       if (!response.ok) {
         throw new Error(payload.error ?? `请求失败：${response.status}`);
       }
@@ -203,6 +208,9 @@ export function AdminDashboard({ overview, users, content }: AdminDashboardProps
             : item
         )
       );
+      if (payload.activity) {
+        setActivityState(payload.activity);
+      }
       setMessage(`${user.name} 已${user.isActive ? "禁用" : "启用"}。`);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "更新失败");
@@ -258,6 +266,9 @@ export function AdminDashboard({ overview, users, content }: AdminDashboardProps
 
       setOverviewState(result.overview);
       setContentState(result.content);
+      if (result.activity) {
+        setActivityState(result.activity);
+      }
       setProblemForm(defaultProblemForm());
       setMessage(`题目《${payload.title}》已加入题库。`);
     } catch (caughtError) {
@@ -318,6 +329,9 @@ export function AdminDashboard({ overview, users, content }: AdminDashboardProps
 
       setOverviewState(result.overview);
       setContentState(result.content);
+      if (result.activity) {
+        setActivityState(result.activity);
+      }
       setPathForm(defaultPathForm());
       setMessage(`课程路径《${payload.title}》已发布。`);
     } catch (caughtError) {
@@ -396,6 +410,80 @@ export function AdminDashboard({ overview, users, content }: AdminDashboardProps
           : module
       )
     }));
+  }
+
+  async function deleteProblem(slug: string) {
+    const confirmed = window.confirm(`确认删除题目 ${slug} 吗？`);
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyDeleteKey(`problem:${slug}`);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(`${publicApiBaseUrl}/api/v1/admin/content/problems/${slug}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          Accept: "application/json"
+        }
+      });
+
+      const result = (await response.json()) as AdminMutationResponse;
+      if (!response.ok) {
+        throw new Error(result.error ?? `删除题目失败：${response.status}`);
+      }
+
+      setOverviewState(result.overview);
+      setContentState(result.content);
+      if (result.activity) {
+        setActivityState(result.activity);
+      }
+      setMessage(`题目 ${slug} 已删除。`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "删除题目失败");
+    } finally {
+      setBusyDeleteKey("");
+    }
+  }
+
+  async function deletePath(slug: string) {
+    const confirmed = window.confirm(`确认删除路径 ${slug} 吗？`);
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyDeleteKey(`path:${slug}`);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(`${publicApiBaseUrl}/api/v1/admin/content/paths/${slug}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          Accept: "application/json"
+        }
+      });
+
+      const result = (await response.json()) as AdminMutationResponse;
+      if (!response.ok) {
+        throw new Error(result.error ?? `删除路径失败：${response.status}`);
+      }
+
+      setOverviewState(result.overview);
+      setContentState(result.content);
+      if (result.activity) {
+        setActivityState(result.activity);
+      }
+      setMessage(`路径 ${slug} 已删除。`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "删除路径失败");
+    } finally {
+      setBusyDeleteKey("");
+    }
   }
 
   return (
@@ -561,6 +649,70 @@ export function AdminDashboard({ overview, users, content }: AdminDashboardProps
           description="路径中嵌入的 lessons 会自动计入课程总数和首页推荐池。"
           items={latestLessons.map((lesson) => `${lesson.title} · ${lesson.id}`)}
         />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <AdminActionListCard
+          eyebrow="Delete Content"
+          title="删除课程路径"
+          description="删除后路径会从公开学习地图消失，首页统计会同步更新。"
+          items={latestPaths.map((path) => ({
+            key: path.slug,
+            title: path.title,
+            subtitle: path.slug,
+            busy: busyDeleteKey === `path:${path.slug}`,
+            onDelete: () => {
+              void deletePath(path.slug);
+            }
+          }))}
+        />
+        <AdminActionListCard
+          eyebrow="Delete Content"
+          title="删除题目"
+          description="删除后题目会从题库列表隐藏，并从课程推荐题目中移除。"
+          items={latestProblems.map((problem) => ({
+            key: problem.slug,
+            title: problem.title,
+            subtitle: problem.slug,
+            busy: busyDeleteKey === `problem:${problem.slug}`,
+            onDelete: () => {
+              void deleteProblem(problem.slug);
+            }
+          }))}
+        />
+      </section>
+
+      <section className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
+        <p className="text-xs uppercase tracking-[0.32em] text-cyan-200/80">Activity</p>
+        <h2 className="mt-3 text-3xl font-semibold text-white">最近后台操作</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+          保留最近 20 条管理员行为，方便回查谁在什么时候修改了账号或内容。
+        </p>
+
+        <div className="mt-6 space-y-3">
+          {activityState.length === 0 ? (
+            <div className="rounded-2xl border border-white/8 bg-slate-950/45 px-4 py-3 text-sm text-slate-400">
+              暂无后台操作记录
+            </div>
+          ) : null}
+          {activityState.map((item) => (
+            <div
+              key={`${item.id}-${item.createdAt}`}
+              className="flex flex-wrap items-start justify-between gap-3 rounded-[24px] border border-white/8 bg-slate-950/45 px-4 py-4"
+            >
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">
+                  {formatActionLabel(item.action)} · {formatTargetLabel(item.targetType)} · {item.targetKey}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {item.actorName} ({item.actorEmail})
+                </p>
+                <p className="text-sm text-slate-300">{item.detail}</p>
+              </div>
+              <p className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("zh-CN")}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
@@ -1026,6 +1178,58 @@ function ContentListCard({
   );
 }
 
+function AdminActionListCard({
+  eyebrow,
+  title,
+  description,
+  items
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  items: Array<{
+    key: string;
+    title: string;
+    subtitle: string;
+    busy: boolean;
+    onDelete: () => void;
+  }>;
+}) {
+  return (
+    <div className="panel-shell rounded-[28px] px-5 py-5">
+      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{eyebrow}</p>
+      <h3 className="mt-3 text-2xl font-semibold text-white">{title}</h3>
+      <p className="mt-3 text-sm leading-7 text-slate-300">{description}</p>
+      <div className="mt-5 space-y-3">
+        {items.length === 0 ? (
+          <div className="rounded-2xl border border-white/8 bg-slate-950/45 px-3 py-3 text-sm text-slate-500">
+            暂无可删除内容
+          </div>
+        ) : null}
+        {items.map((item) => (
+          <div
+            key={item.key}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-slate-950/45 px-3 py-3"
+          >
+            <div>
+              <p className="text-sm font-medium text-white">{item.title}</p>
+              <p className="mt-1 text-xs text-slate-400">{item.subtitle}</p>
+            </div>
+            <button
+              type="button"
+              disabled={item.busy}
+              onClick={item.onDelete}
+              className="rounded-full border border-rose-300/20 px-4 py-2 text-xs text-rose-100 transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {item.busy ? "删除中..." : "删除"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Field({
   label,
   value,
@@ -1127,4 +1331,36 @@ function splitLineList(value: string) {
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function formatActionLabel(action: string) {
+  switch (action) {
+    case "create_problem":
+      return "创建题目";
+    case "delete_problem":
+      return "删除题目";
+    case "create_path":
+      return "创建路径";
+    case "delete_path":
+      return "删除路径";
+    case "enable_user":
+      return "启用用户";
+    case "disable_user":
+      return "禁用用户";
+    default:
+      return action;
+  }
+}
+
+function formatTargetLabel(targetType: string) {
+  switch (targetType) {
+    case "problem":
+      return "题目";
+    case "path":
+      return "路径";
+    case "user":
+      return "用户";
+    default:
+      return targetType;
+  }
 }

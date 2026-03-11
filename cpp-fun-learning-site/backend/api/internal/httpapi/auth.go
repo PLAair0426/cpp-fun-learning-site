@@ -70,7 +70,10 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		_ = s.store.DeleteSession(cookie.Value)
 	}
 	s.clearSessionCookie(w)
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":       true,
+		"activity": s.store.ListAdminActivity(20),
+	})
 }
 
 func (s *Server) handleCurrentUser(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +107,13 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.store.ListUsersForAdmin())
 }
 
+func (s *Server) handleAdminActivity(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.store.ListAdminActivity(20))
+}
+
 func (s *Server) handleAdminUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	admin, ok := s.requireAdmin(w, r)
 	if !ok {
@@ -129,6 +139,13 @@ func (s *Server) handleAdminUpdateUserStatus(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update user"})
 		return
 	}
+	action := "disable_user"
+	detail := "Disabled learner account"
+	if req.IsActive {
+		action = "enable_user"
+		detail = "Enabled learner account"
+	}
+	_ = s.store.RecordAdminActivity(admin, action, "user", userID, detail)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

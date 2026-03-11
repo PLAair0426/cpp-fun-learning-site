@@ -9,14 +9,27 @@ import (
 )
 
 var (
-	ErrContentExists  = errors.New("content already exists")
-	ErrContentInvalid = errors.New("content payload is invalid")
+	ErrContentExists   = errors.New("content already exists")
+	ErrContentInvalid  = errors.New("content payload is invalid")
+	ErrContentNotFound = errors.New("content not found")
 )
 
 type AdminContentCatalog struct {
 	Paths    []PathSummary    `json:"paths"`
 	Lessons  []Lesson         `json:"lessons"`
 	Problems []ProblemSummary `json:"problems"`
+}
+
+type AdminActivityEntry struct {
+	ID         int64     `json:"id"`
+	ActorID    string    `json:"actorId"`
+	ActorName  string    `json:"actorName"`
+	ActorEmail string    `json:"actorEmail"`
+	Action     string    `json:"action"`
+	TargetType string    `json:"targetType"`
+	TargetKey  string    `json:"targetKey"`
+	Detail     string    `json:"detail"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 type AdminCreateProblemInput struct {
@@ -65,6 +78,97 @@ func (s *Store) GetAdminContentCatalog() AdminContentCatalog {
 	}
 }
 
+func (s *Store) ListAdminActivity(limit int) []AdminActivityEntry {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		rows, err := s.db.Query(
+			ctx,
+			`select id, actor_id, actor_name, actor_email, action, target_type, target_key, detail, created_at
+			 from admin_activity_logs
+			 order by created_at desc
+			 limit $1`,
+			limit,
+		)
+		if err == nil {
+			defer rows.Close()
+
+			items := make([]AdminActivityEntry, 0, limit)
+			for rows.Next() {
+				var item AdminActivityEntry
+				if scanErr := rows.Scan(
+					&item.ID,
+					&item.ActorID,
+					&item.ActorName,
+					&item.ActorEmail,
+					&item.Action,
+					&item.TargetType,
+					&item.TargetKey,
+					&item.Detail,
+					&item.CreatedAt,
+				); scanErr == nil {
+					items = append(items, item)
+				}
+			}
+			return items
+		}
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if len(s.adminLogs) <= limit {
+		return append([]AdminActivityEntry(nil), s.adminLogs...)
+	}
+	return append([]AdminActivityEntry(nil), s.adminLogs[:limit]...)
+}
+
+func (s *Store) RecordAdminActivity(actor UserAccount, action, targetType, targetKey, detail string) error {
+	entry := AdminActivityEntry{
+		ActorID:    actor.ID,
+		ActorName:  actor.Name,
+		ActorEmail: actor.Email,
+		Action:     strings.TrimSpace(action),
+		TargetType: strings.TrimSpace(targetType),
+		TargetKey:  strings.TrimSpace(targetKey),
+		Detail:     strings.TrimSpace(detail),
+		CreatedAt:  time.Now(),
+	}
+
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		return s.db.QueryRow(
+			ctx,
+			`insert into admin_activity_logs (actor_id, actor_name, actor_email, action, target_type, target_key, detail)
+			 values ($1, $2, $3, $4, $5, $6, $7)
+			 returning id, created_at`,
+			entry.ActorID,
+			entry.ActorName,
+			entry.ActorEmail,
+			entry.Action,
+			entry.TargetType,
+			entry.TargetKey,
+			entry.Detail,
+		).Scan(&entry.ID, &entry.CreatedAt)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry.ID = int64(len(s.adminLogs) + 1)
+	s.adminLogs = append([]AdminActivityEntry{entry}, s.adminLogs...)
+	if len(s.adminLogs) > 50 {
+		s.adminLogs = s.adminLogs[:50]
+	}
+	return nil
+}
+
 func (s *Store) CreateAdminProblem(input AdminCreateProblemInput) error {
 	problems := s.currentProblems()
 	for _, item := range problems {
@@ -104,6 +208,66 @@ func (s *Store) CreateAdminPath(input AdminCreatePathInput) error {
 	}
 
 	paths = append(paths, path)
+	home := rebuildManagedHome(s.currentHome(), paths, problems)
+	return s.persistManagedContent(home, paths, problems)
+}
+
+func (s *Store) DeleteAdminProblem(slug string) error {
+	targetSlug := strings.TrimSpace(slug)
+	if targetSlug == "" {
+		return fmt.Errorf("%w: problem slug is required", ErrContentInvalid)
+	}
+
+	problems := s.currentProblems()
+	index := -1
+	for currentIndex, item := range problems {
+		if item.Slug == targetSlug {
+			index = currentIndex
+			break
+		}
+	}
+	if index == -1 {
+		return fmt.Errorf("%w: problem slug %q", ErrContentNotFound, targetSlug)
+	}
+
+	problems = append(problems[:index], problems[index+1:]...)
+	paths := s.currentPaths()
+	for pathIndex := range paths {
+		filtered := make([]ProblemSummary, 0, len(paths[pathIndex].RecommendedProblems))
+		for _, problem := range paths[pathIndex].RecommendedProblems {
+			if problem.Slug == targetSlug {
+				continue
+			}
+			filtered = append(filtered, problem)
+		}
+		paths[pathIndex].RecommendedProblems = filtered
+		paths[pathIndex].ChallengeCount = len(filtered)
+	}
+
+	home := rebuildManagedHome(s.currentHome(), paths, problems)
+	return s.persistManagedContent(home, paths, problems)
+}
+
+func (s *Store) DeleteAdminPath(slug string) error {
+	targetSlug := strings.TrimSpace(slug)
+	if targetSlug == "" {
+		return fmt.Errorf("%w: path slug is required", ErrContentInvalid)
+	}
+
+	paths := s.currentPaths()
+	index := -1
+	for currentIndex, item := range paths {
+		if item.Slug == targetSlug {
+			index = currentIndex
+			break
+		}
+	}
+	if index == -1 {
+		return fmt.Errorf("%w: path slug %q", ErrContentNotFound, targetSlug)
+	}
+
+	paths = append(paths[:index], paths[index+1:]...)
+	problems := s.currentProblems()
 	home := rebuildManagedHome(s.currentHome(), paths, problems)
 	return s.persistManagedContent(home, paths, problems)
 }

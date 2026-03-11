@@ -137,6 +137,18 @@ export type AdminContentCatalog = {
   problems: ProblemSummary[];
 };
 
+export type AdminActivityEntry = {
+  id: number;
+  actorId: string;
+  actorName: string;
+  actorEmail: string;
+  action: string;
+  targetType: string;
+  targetKey: string;
+  detail: string;
+  createdAt: string;
+};
+
 export type PathModule = {
   title: string;
   summary: string;

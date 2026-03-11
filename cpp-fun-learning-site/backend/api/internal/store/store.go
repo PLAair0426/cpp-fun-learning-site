@@ -15,6 +15,7 @@ type Store struct {
 	problems    []ProblemDetail
 	leaderboard []LeaderboardEntry
 	progress    ProgressOverview
+	adminLogs   []AdminActivityEntry
 	db          *pgxpool.Pool
 	redis       *redis.Client
 	usersByID   map[string]UserAccount

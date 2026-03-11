@@ -6,11 +6,16 @@ import (
 )
 
 func (s *Store) GetProgressOverviewForUser(userID string) ProgressOverview {
+	paths := s.currentPaths()
+	problems := s.currentProblems()
+	totalLessons := len(flattenLessonsStable(paths))
+	totalProblems := len(problems)
+
 	if userID == "" {
-		return guestProgressOverview(s.progress, len(uniqueLessons(s.paths)), len(s.problems))
+		return guestProgressOverview(s.progress, totalLessons, totalProblems)
 	}
 
-	base := guestProgressOverview(s.progress, len(uniqueLessons(s.paths)), len(s.problems))
+	base := guestProgressOverview(s.progress, totalLessons, totalProblems)
 	if s.db == nil {
 		return base
 	}
