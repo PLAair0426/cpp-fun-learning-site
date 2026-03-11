@@ -62,6 +62,8 @@ func (s *Store) ensureOperationalSchema(ctx context.Context) error {
 			name text not null,
 			email text not null unique,
 			password_hash text not null,
+			role text not null default 'learner',
+			is_active boolean not null default true,
 			created_at timestamptz not null default now()
 		)`,
 		`create table if not exists user_sessions (
@@ -73,6 +75,16 @@ func (s *Store) ensureOperationalSchema(ctx context.Context) error {
 	}
 
 	for _, statement := range statements {
+		if _, err := s.db.Exec(ctx, statement); err != nil {
+			return err
+		}
+	}
+
+	alterStatements := []string{
+		`alter table users add column if not exists role text not null default 'learner'`,
+		`alter table users add column if not exists is_active boolean not null default true`,
+	}
+	for _, statement := range alterStatements {
 		if _, err := s.db.Exec(ctx, statement); err != nil {
 			return err
 		}

@@ -17,6 +17,9 @@ services:
       ENABLE_MOCK_JUDGE: ${ENABLE_MOCK_JUDGE:-true}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-cppstudy_session}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-720}
+      ADMIN_NAME: ${ADMIN_NAME:-Site Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cppstudy.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
     ports:
       - "${API_HOST_PORT:-8080}:8080"
 

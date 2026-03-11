@@ -2,6 +2,8 @@ import "server-only";
 
 import { headers } from "next/headers";
 import type {
+  AdminOverview,
+  AdminUserDetail,
   AuthResponse,
   HomeResponse,
   PathDetail,
@@ -38,6 +40,9 @@ async function fetchServerApi<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 401) {
     throw new Error("UNAUTHORIZED");
+  }
+  if (response.status === 403) {
+    throw new Error("FORBIDDEN");
   }
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status}`);
@@ -130,6 +135,34 @@ export async function getMySubmissions(): Promise<UserSubmissionSummary[]> {
   try {
     return await fetchServerApi<UserSubmissionSummary[]>("/api/v1/submissions");
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function getAdminOverview(): Promise<AdminOverview | null> {
+  try {
+    return await fetchServerApi<AdminOverview>("/api/v1/admin/overview");
+  } catch (error) {
+    if (error instanceof Error && (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN")) {
+      return null;
+    }
+    if (error instanceof Error && error.message.startsWith("API request failed: 403")) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function getAdminUsers(): Promise<AdminUserDetail[]> {
+  try {
+    return await fetchServerApi<AdminUserDetail[]>("/api/v1/admin/users");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("API request failed: 403")) {
+      return [];
+    }
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return [];
     }

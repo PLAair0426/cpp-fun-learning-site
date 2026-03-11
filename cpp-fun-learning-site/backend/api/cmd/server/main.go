@@ -22,6 +22,9 @@ func main() {
 	if cfg.RedisAddr != "" {
 		connectRedisWithRetry(dataStore, cfg.RedisAddr)
 	}
+	if err := dataStore.EnsureAdminUser(cfg.AdminName, cfg.AdminEmail, cfg.AdminPassword); err != nil {
+		log.Printf("admin bootstrap skipped: %v", err)
+	}
 
 	server := httpapi.New(cfg, dataStore)
 

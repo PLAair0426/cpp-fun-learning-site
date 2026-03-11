@@ -23,6 +23,8 @@ type UserAccount struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
+	Role      string    `json:"role"`
+	IsActive  bool      `json:"isActive"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -41,6 +43,24 @@ type UserSubmissionSummary struct {
 	Result       string    `json:"result"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+type AdminUserDetail struct {
+	UserAccount
+	SubmissionCount int       `json:"submissionCount"`
+	AcceptedCount   int       `json:"acceptedCount"`
+	LastActiveAt    time.Time `json:"lastActiveAt,omitempty"`
+}
+
+type AdminOverview struct {
+	TotalUsers          int `json:"totalUsers"`
+	ActiveUsers         int `json:"activeUsers"`
+	AdminUsers          int `json:"adminUsers"`
+	TotalSubmissions    int `json:"totalSubmissions"`
+	AcceptedSubmissions int `json:"acceptedSubmissions"`
+	TotalPaths          int `json:"totalPaths"`
+	TotalLessons        int `json:"totalLessons"`
+	TotalProblems       int `json:"totalProblems"`
 }
 
 type memoryUser struct {
@@ -71,14 +91,14 @@ func (s *Store) RegisterUser(name, email, password string) (UserAccount, error) 
 		user := UserAccount{}
 		err = s.db.QueryRow(
 			ctx,
-			`insert into users (id, name, email, password_hash)
-			 values ($1, $2, $3, $4)
-			 returning id, name, email, created_at`,
+			`insert into users (id, name, email, password_hash, role, is_active)
+			 values ($1, $2, $3, $4, 'learner', true)
+			 returning id, name, email, role, is_active, created_at`,
 			newID("usr"),
 			normalizedName,
 			normalizedEmail,
 			string(passwordHash),
-		).Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt)
+		).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt)
 		if err == nil {
 			return user, nil
 		}
@@ -99,6 +119,8 @@ func (s *Store) RegisterUser(name, email, password string) (UserAccount, error) 
 		ID:        newID("usr"),
 		Name:      normalizedName,
 		Email:     normalizedEmail,
+		Role:      "learner",
+		IsActive:  true,
 		CreatedAt: time.Now(),
 	}
 	s.usersByID[user.ID] = user
@@ -124,11 +146,11 @@ func (s *Store) AuthenticateUser(email, password string) (UserAccount, error) {
 		var passwordHash string
 		err := s.db.QueryRow(
 			ctx,
-			`select id, name, email, password_hash, created_at
+			`select id, name, email, role, is_active, password_hash, created_at
 			 from users
 			 where email = $1`,
 			normalizedEmail,
-		).Scan(&user.ID, &user.Name, &user.Email, &passwordHash, &user.CreatedAt)
+		).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.IsActive, &passwordHash, &user.CreatedAt)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				return UserAccount{}, ErrInvalidCredentials
@@ -138,6 +160,9 @@ func (s *Store) AuthenticateUser(email, password string) (UserAccount, error) {
 
 		if compareErr := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)); compareErr != nil {
 			return UserAccount{}, ErrInvalidCredentials
+		}
+		if !user.IsActive {
+			return UserAccount{}, errors.New("account has been disabled")
 		}
 
 		return user, nil
@@ -151,6 +176,9 @@ func (s *Store) AuthenticateUser(email, password string) (UserAccount, error) {
 	}
 	if compareErr := bcrypt.CompareHashAndPassword(storedUser.PasswordHash, []byte(password)); compareErr != nil {
 		return UserAccount{}, ErrInvalidCredentials
+	}
+	if !storedUser.IsActive {
+		return UserAccount{}, errors.New("account has been disabled")
 	}
 	return storedUser.UserAccount, nil
 }
@@ -200,16 +228,20 @@ func (s *Store) FindUserBySession(token string) (UserAccount, bool) {
 		var expiresAt time.Time
 		err := s.db.QueryRow(
 			ctx,
-			`select u.id, u.name, u.email, u.created_at, us.expires_at
+			`select u.id, u.name, u.email, u.role, u.is_active, u.created_at, us.expires_at
 			 from user_sessions us
 			 join users u on u.id = us.user_id
 			 where us.token = $1`,
 			token,
-		).Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &expiresAt)
+		).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.IsActive, &user.CreatedAt, &expiresAt)
 		if err != nil {
 			return UserAccount{}, false
 		}
 		if expiresAt.Before(time.Now()) {
+			_ = s.DeleteSession(token)
+			return UserAccount{}, false
+		}
+		if !user.IsActive {
 			_ = s.DeleteSession(token)
 			return UserAccount{}, false
 		}
@@ -229,7 +261,7 @@ func (s *Store) FindUserBySession(token string) (UserAccount, bool) {
 	s.mu.RLock()
 	user, ok := s.usersByID[session.UserID]
 	s.mu.RUnlock()
-	return user, ok
+	return user, ok && user.IsActive
 }
 
 func (s *Store) DeleteSession(token string) error {
@@ -315,4 +347,187 @@ func newID(prefix string) string {
 		return fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
 	}
 	return fmt.Sprintf("%s_%s", prefix, hex.EncodeToString(buffer))
+}
+
+func (s *Store) EnsureAdminUser(name, email, password string) error {
+	normalizedEmail := normalizeEmail(email)
+	normalizedName := strings.TrimSpace(name)
+	normalizedPassword := strings.TrimSpace(password)
+	if normalizedEmail == "" || normalizedName == "" || normalizedPassword == "" {
+		return nil
+	}
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(normalizedPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, err = s.db.Exec(
+			ctx,
+			`insert into users (id, name, email, password_hash, role, is_active)
+			 values ($1, $2, $3, $4, 'admin', true)
+			 on conflict (email) do update
+			 set name = excluded.name,
+			     password_hash = excluded.password_hash,
+			     role = 'admin',
+			     is_active = true`,
+			newID("usr"),
+			normalizedName,
+			normalizedEmail,
+			string(passwordHash),
+		)
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	user, exists := s.usersByMail[normalizedEmail]
+	if exists {
+		user.Name = normalizedName
+		user.Role = "admin"
+		user.IsActive = true
+		user.PasswordHash = passwordHash
+		s.usersByMail[normalizedEmail] = user
+		s.usersByID[user.ID] = user.UserAccount
+		return nil
+	}
+
+	account := UserAccount{
+		ID:        newID("usr"),
+		Name:      normalizedName,
+		Email:     normalizedEmail,
+		Role:      "admin",
+		IsActive:  true,
+		CreatedAt: time.Now(),
+	}
+	s.usersByMail[normalizedEmail] = memoryUser{
+		UserAccount:  account,
+		PasswordHash: passwordHash,
+	}
+	s.usersByID[account.ID] = account
+	return nil
+}
+
+func (s *Store) ListUsersForAdmin() []AdminUserDetail {
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		rows, err := s.db.Query(
+			ctx,
+			`select u.id,
+			        u.name,
+			        u.email,
+			        u.role,
+			        u.is_active,
+			        u.created_at,
+			        count(s.id),
+			        count(*) filter (where s.result = 'ACCEPTED'),
+			        coalesce(max(s.updated_at), u.created_at)
+			 from users u
+			 left join submissions s on s.user_id = u.id
+			 group by u.id, u.name, u.email, u.role, u.is_active, u.created_at
+			 order by u.created_at desc`,
+		)
+		if err != nil {
+			return nil
+		}
+		defer rows.Close()
+
+		items := make([]AdminUserDetail, 0)
+		for rows.Next() {
+			var item AdminUserDetail
+			if scanErr := rows.Scan(
+				&item.ID,
+				&item.Name,
+				&item.Email,
+				&item.Role,
+				&item.IsActive,
+				&item.CreatedAt,
+				&item.SubmissionCount,
+				&item.AcceptedCount,
+				&item.LastActiveAt,
+			); scanErr == nil {
+				items = append(items, item)
+			}
+		}
+		return items
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	items := make([]AdminUserDetail, 0, len(s.usersByID))
+	for _, user := range s.usersByID {
+		items = append(items, AdminUserDetail{UserAccount: user})
+	}
+	return items
+}
+
+func (s *Store) SetUserActive(userID string, isActive bool) error {
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, err := s.db.Exec(ctx, `update users set is_active = $2 where id = $1`, userID, isActive)
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	user, ok := s.usersByID[userID]
+	if !ok {
+		return nil
+	}
+	user.IsActive = isActive
+	s.usersByID[userID] = user
+	mem := s.usersByMail[user.Email]
+	mem.IsActive = isActive
+	s.usersByMail[user.Email] = mem
+	return nil
+}
+
+func (s *Store) GetAdminOverview() AdminOverview {
+	overview := AdminOverview{
+		TotalPaths:    len(s.paths),
+		TotalLessons:  len(uniqueLessons(s.paths)),
+		TotalProblems: len(s.problems),
+	}
+
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.db.QueryRow(
+			ctx,
+			`select
+				count(*)::int,
+				count(*) filter (where is_active)::int,
+				count(*) filter (where role = 'admin')::int
+			 from users`,
+		).Scan(&overview.TotalUsers, &overview.ActiveUsers, &overview.AdminUsers)
+		_ = s.db.QueryRow(
+			ctx,
+			`select
+				count(*)::int,
+				count(*) filter (where result = 'ACCEPTED')::int
+			 from submissions`,
+		).Scan(&overview.TotalSubmissions, &overview.AcceptedSubmissions)
+		return overview
+	}
+
+	users := s.ListUsersForAdmin()
+	overview.TotalUsers = len(users)
+	for _, user := range users {
+		if user.IsActive {
+			overview.ActiveUsers++
+		}
+		if user.Role == "admin" {
+			overview.AdminUsers++
+		}
+		overview.TotalSubmissions += user.SubmissionCount
+		overview.AcceptedSubmissions += user.AcceptedCount
+	}
+	return overview
 }

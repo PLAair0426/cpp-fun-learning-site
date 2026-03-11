@@ -95,6 +95,8 @@ export type UserSummary = {
   id: string;
   name: string;
   email: string;
+  role: string;
+  isActive: boolean;
   createdAt: string;
 };
 
@@ -110,6 +112,23 @@ export type UserSubmissionSummary = {
   result: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AdminOverview = {
+  totalUsers: number;
+  activeUsers: number;
+  adminUsers: number;
+  totalSubmissions: number;
+  acceptedSubmissions: number;
+  totalPaths: number;
+  totalLessons: number;
+  totalProblems: number;
+};
+
+export type AdminUserDetail = UserSummary & {
+  submissionCount: number;
+  acceptedCount: number;
+  lastActiveAt?: string;
 };
 
 export type PathModule = {

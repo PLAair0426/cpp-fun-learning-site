@@ -572,6 +572,53 @@ gdb ./hello`,
 (gdb) run
 (gdb) next`,
 		},
+		{
+			ID:          "lesson-stl-vector-basics",
+			Title:       "vector 动态数组入门",
+			Module:      "STL 工具箱：常用容器与算法",
+			Duration:    "18 分钟",
+			Difficulty:  "Beginner",
+			Objective:   "认识 `vector` 的创建、追加、遍历方式，理解它和普通数组的差异。",
+			ContentTags: []string{"STL", "vector", "动态数组"},
+			Snippet: `vector<int> nums = {3, 5, 8};
+nums.push_back(13);
+cout << nums[0] << " " << nums.size();`,
+		},
+		{
+			ID:          "lesson-stl-string-ops",
+			Title:       "string 输入输出与拼接",
+			Module:      "STL 工具箱：常用容器与算法",
+			Duration:    "16 分钟",
+			Difficulty:  "Beginner",
+			Objective:   "掌握 `string` 的读取、拼接、长度获取和下标访问。",
+			ContentTags: []string{"STL", "string", "输入输出"},
+			Snippet: `string name = "C++";
+name += " Fun";
+cout << name << " " << name.size();`,
+		},
+		{
+			ID:          "lesson-stl-sort-search",
+			Title:       "sort 与 binary_search",
+			Module:      "STL 工具箱：常用容器与算法",
+			Duration:    "20 分钟",
+			Difficulty:  "Intermediate",
+			Objective:   "理解排序后再查找的基本套路，掌握 `sort` 与 `binary_search` 的典型用法。",
+			ContentTags: []string{"algorithm", "sort", "binary_search"},
+			Snippet: `sort(nums.begin(), nums.end());
+bool ok = binary_search(nums.begin(), nums.end(), 8);
+cout << ok;`,
+		},
+		{
+			ID:          "lesson-stl-pair-struct",
+			Title:       "pair 与 struct 组织数据",
+			Module:      "STL 工具箱：常用容器与算法",
+			Duration:    "17 分钟",
+			Difficulty:  "Intermediate",
+			Objective:   "学会用 `pair` 或 `struct` 打包信息，为排行榜、学生信息等场景做准备。",
+			ContentTags: []string{"pair", "struct", "数据组织"},
+			Snippet: `pair<string, int> player = {"Ada", 95};
+cout << player.first << " " << player.second;`,
+		},
 	}
 
 	problems := []ProblemDetail{
@@ -1340,6 +1387,139 @@ int main() {
 				},
 			},
 		},
+		{
+			ProblemSummary: ProblemSummary{
+				Slug:       "vector-sum-board",
+				Title:      "vector 求和看板",
+				Difficulty: "Easy",
+				Type:       "容器题",
+				Tags:       []string{"vector", "for", "sum"},
+				Mission:    "把一组整数装进 `vector`，并输出它们的总和。",
+			},
+			Description: "练习 `vector<int>` 的读入、遍历和累计。题目重点是容器与循环配合，而不是复杂算法。",
+			StarterCode: `#include <iostream>
+#include <vector>
+using namespace std;
+
+int main() {
+  int n;
+  cin >> n;
+  vector<int> nums(n);
+  for (int i = 0; i < n; i++) {
+    cin >> nums[i];
+  }
+
+  int sum = 0;
+  // TODO: 累加 nums 中的值
+
+  cout << sum;
+  return 0;
+}`,
+			Hints: []string{
+				"可以再写一个 `for` 循环，把 `nums[i]` 加到 `sum`。",
+				"如果你熟悉范围 `for`，也可以直接遍历每个元素。",
+			},
+			Acceptance: []string{
+				"必须使用 `vector<int>` 保存输入数据。",
+				"输出所有元素的总和。",
+			},
+			Runtime: "mock runtime · C++17 STL",
+			Examples: []ProblemExample{
+				{
+					Input:       "5\n1 3 5 7 9",
+					Output:      "25",
+					Explanation: "把五个数依次存入 `vector` 后累加即可。",
+				},
+			},
+		},
+		{
+			ProblemSummary: ProblemSummary{
+				Slug:       "string-scoreboard",
+				Title:      "string 排名卡片",
+				Difficulty: "Easy",
+				Type:       "字符串题",
+				Tags:       []string{"string", "concat", "cout"},
+				Mission:    "读入姓名和分数，输出一行排行榜卡片。",
+			},
+			Description: "结合 `string`、整数与输出格式，模拟生成一条简单的排行榜信息。",
+			StarterCode: `#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+  string name;
+  int score;
+  cin >> name >> score;
+
+  // TODO: 输出 name:score
+
+  return 0;
+}`,
+			Hints: []string{
+				"可以直接使用 `cout << name << \":\" << score;`。",
+				"`string` 与整数都能直接通过 `cout` 串起来输出。",
+			},
+			Acceptance: []string{
+				"输出格式必须是 `姓名:分数`。",
+				"不要额外输出提示文字。",
+			},
+			Runtime: "mock runtime · C++17 STL",
+			Examples: []ProblemExample{
+				{
+					Input:       "Alice 98",
+					Output:      "Alice:98",
+					Explanation: "按题目要求拼成一行即可。",
+				},
+			},
+		},
+		{
+			ProblemSummary: ProblemSummary{
+				Slug:       "sort-ranking-list",
+				Title:      "sort 排名整理",
+				Difficulty: "Medium",
+				Type:       "算法题",
+				Tags:       []string{"sort", "vector", "algorithm"},
+				Mission:    "将输入的一组分数从小到大排序后输出。",
+			},
+			Description: "体会 `sort` 的基础使用方式，理解容器区间 `[begin, end)` 的写法。",
+			StarterCode: `#include <algorithm>
+#include <iostream>
+#include <vector>
+using namespace std;
+
+int main() {
+  int n;
+  cin >> n;
+  vector<int> scores(n);
+  for (int i = 0; i < n; i++) {
+    cin >> scores[i];
+  }
+
+  // TODO: 调用 sort
+
+  for (int i = 0; i < n; i++) {
+    if (i) cout << " ";
+    cout << scores[i];
+  }
+  return 0;
+}`,
+			Hints: []string{
+				"`sort(scores.begin(), scores.end());` 是最常见的写法。",
+				"排序后按顺序输出即可，不需要手写排序算法。",
+			},
+			Acceptance: []string{
+				"必须正确调用 `sort` 完成升序排序。",
+				"输出用空格分隔，末尾不多空格。",
+			},
+			Runtime: "mock runtime · C++17 STL",
+			Examples: []ProblemExample{
+				{
+					Input:       "6\n9 2 7 1 5 3",
+					Output:      "1 2 3 5 7 9",
+					Explanation: "先排序，再按顺序输出整个序列。",
+				},
+			},
+		},
 	}
 
 	leaderboard := []LeaderboardEntry{
@@ -1510,6 +1690,46 @@ int main() {
 			},
 			RecommendedProblems: pickProblemSummaries(problems, "linux-compile-route", "linux-gdb-route", "gdb-break-watch", "gdb-next-step"),
 		},
+		{
+			PathSummary: PathSummary{
+				Slug:           "stl-toolbox",
+				Title:          "STL 工具箱",
+				Subtitle:       "把 vector、string、sort 和 pair 这些高频工具用到顺手。",
+				Theme:          "效率工坊",
+				EstimatedHours: 8,
+				LessonCount:    4,
+				ChallengeCount: 3,
+				FocusTags:      []string{"vector", "string", "sort", "pair"},
+				BossMission:    "完成一轮 STL 容器、字符串、排序与数据组织的基础训练。",
+			},
+			Description: "这条路径把初学者最常碰到的 STL 能力单独收拢，适合作为完成语法基础后的第一条效率进阶线。",
+			Milestones: []string{
+				"会用 `vector` 代替固定长度数组存放一组数据。",
+				"能使用 `string` 处理姓名、标签和拼接输出。",
+				"掌握 `sort` 排序与 `pair / struct` 组织信息的基本套路。",
+			},
+			Modules: []PathModule{
+				{
+					Title:   "模块 1：容器与字符串起步",
+					Summary: "先把 `vector` 和 `string` 的常见读写方式练熟。",
+					Reward:  "获得「STL 见习工匠」称号",
+					Lessons: pickLessons(lessons, "lesson-stl-vector-basics", "lesson-stl-string-ops"),
+				},
+				{
+					Title:   "模块 2：排序与查找套路",
+					Summary: "建立“先排序、后查找”的算法直觉。",
+					Reward:  "解锁 STL 排序练习组",
+					Lessons: pickLessons(lessons, "lesson-stl-sort-search"),
+				},
+				{
+					Title:   "模块 3：把信息组织成结构",
+					Summary: "学会用 `pair` 和 `struct` 打包多字段数据。",
+					Reward:  "获得「数据整理师」徽章",
+					Lessons: pickLessons(lessons, "lesson-stl-pair-struct"),
+				},
+			},
+			RecommendedProblems: pickProblemSummaries(problems, "vector-sum-board", "string-scoreboard", "sort-ranking-list"),
+		},
 	}
 
 	home := HomeResponse{
@@ -1520,9 +1740,9 @@ int main() {
 			PrimaryAction:   ActionLink{Label: "开始刷路径", Href: "/paths/cpp-rookie-village"},
 			SecondaryAction: ActionLink{Label: "打开题库", Href: "/problems"},
 			Metrics: []HeroMetric{
-				{Label: "学习路径", Value: "4"},
-				{Label: "课程模块", Value: "32"},
-				{Label: "练习题", Value: "26"},
+				{Label: "学习路径", Value: "5"},
+				{Label: "课程模块", Value: "36"},
+				{Label: "练习题", Value: "29"},
 			},
 		},
 		DailyQuest: DailyQuest{
@@ -1536,12 +1756,12 @@ int main() {
 			},
 		},
 		FeaturedPaths:    toPathSummaries(paths),
-		FeaturedLessons:  pickLessons(lessons, "lesson-prefix-postfix", "lesson-switch-default", "lesson-function-return-value", "lesson-value-vs-reference", "lesson-vs-debug-workflow", "lesson-linux-step-next"),
-		FeaturedProblems: pickProblemSummaries(problems, "prefix-postfix-lab", "switch-default-camp", "return-value-orb", "value-copy-lab", "char-badge", "gdb-next-step"),
+		FeaturedLessons:  pickLessons(lessons, "lesson-prefix-postfix", "lesson-switch-default", "lesson-stl-vector-basics", "lesson-stl-sort-search", "lesson-value-vs-reference", "lesson-linux-step-next"),
+		FeaturedProblems: pickProblemSummaries(problems, "prefix-postfix-lab", "vector-sum-board", "sort-ranking-list", "return-value-orb", "char-badge", "gdb-next-step"),
 		Leaderboard:      leaderboard,
 		ReleaseNotes: []string{
-			"已根据 DOCX 继续扩充为 4 条路径、32 节课程、26 道练习。",
-			"新增前后置自增、switch default、函数返回值、gdb next 单步等内容模块。",
+			"已根据 DOCX 继续扩充为 5 条路径、36 节课程、29 道练习。",
+			"新增 STL 工具箱路径，补充 vector、string、sort、pair 等内容模块。",
 			"首页、路径页、题库页与本地 API 数据已经同步更新。",
 			"Judge0 接入口仍保留，当前继续支持 mock runtime 本地联调。",
 		},

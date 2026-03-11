@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"cpp-fun-learning-site/api/internal/store"
+	"github.com/go-chi/chi/v5"
 )
 
 type credentialsRequest struct {
@@ -16,6 +17,10 @@ type credentialsRequest struct {
 
 type authResponse struct {
 	User store.UserAccount `json:"user"`
+}
+
+type updateUserStatusRequest struct {
+	IsActive bool `json:"isActive"`
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +90,48 @@ func (s *Server) handleCurrentUserSubmissions(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, s.store.ListUserSubmissions(user.ID, 12))
 }
 
+func (s *Server) handleAdminOverview(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.store.GetAdminOverview())
+}
+
+func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, s.store.ListUsersForAdmin())
+}
+
+func (s *Server) handleAdminUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
+	admin, ok := s.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+
+	userID := chi.URLParam(r, "userID")
+	if strings.TrimSpace(userID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "userID is required"})
+		return
+	}
+	if admin.ID == userID {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "admin cannot disable current account"})
+		return
+	}
+
+	var req updateUserStatusRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := s.store.SetUserActive(userID, req.IsActive); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update user"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func (s *Server) currentUser(r *http.Request) (store.UserAccount, bool) {
 	cookie, err := r.Cookie(s.cfg.SessionCookie)
 	if err != nil || strings.TrimSpace(cookie.Value) == "" {
@@ -97,6 +144,18 @@ func (s *Server) requireUser(w http.ResponseWriter, r *http.Request) (store.User
 	user, ok := s.currentUser(r)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "please login first"})
+		return store.UserAccount{}, false
+	}
+	return user, true
+}
+
+func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) (store.UserAccount, bool) {
+	user, ok := s.requireUser(w, r)
+	if !ok {
+		return store.UserAccount{}, false
+	}
+	if user.Role != "admin" {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "admin access required"})
 		return store.UserAccount{}, false
 	}
 	return user, true

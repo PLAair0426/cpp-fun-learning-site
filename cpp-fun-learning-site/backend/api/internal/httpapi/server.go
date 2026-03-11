@@ -82,6 +82,11 @@ func (s *Server) Router() http.Handler {
 			r.Post("/logout", s.handleLogout)
 			r.Get("/me", s.handleCurrentUser)
 		})
+		r.Route("/admin", func(r chi.Router) {
+			r.Get("/overview", s.handleAdminOverview)
+			r.Get("/users", s.handleAdminUsers)
+			r.Patch("/users/{userID}", s.handleAdminUpdateUserStatus)
+		})
 		r.Get("/home", s.handleHome)
 		r.Get("/paths", s.handlePaths)
 		r.Get("/paths/{slug}", s.handlePath)

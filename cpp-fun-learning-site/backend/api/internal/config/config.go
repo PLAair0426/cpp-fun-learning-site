@@ -15,6 +15,9 @@ type Config struct {
 	EnableMockJudge bool
 	SessionTTLHours int
 	SessionCookie   string
+	AdminName       string
+	AdminEmail      string
+	AdminPassword   string
 }
 
 func Load() Config {
@@ -28,6 +31,9 @@ func Load() Config {
 		EnableMockJudge: envOr("ENABLE_MOCK_JUDGE", "true") != "false",
 		SessionTTLHours: envIntOr("SESSION_TTL_HOURS", 720),
 		SessionCookie:   envOr("SESSION_COOKIE_NAME", "cppstudy_session"),
+		AdminName:       envOr("ADMIN_NAME", "Site Admin"),
+		AdminEmail:      envOr("ADMIN_EMAIL", "admin@cppstudy.local"),
+		AdminPassword:   envOr("ADMIN_PASSWORD", "ChangeMe123!"),
 	}
 }
 

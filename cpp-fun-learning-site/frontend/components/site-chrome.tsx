@@ -51,6 +51,15 @@ export async function SiteChrome({ children }: { children: React.ReactNode }) {
                 <LockKeyhole className="h-4 w-4" />
                 {currentUser ? currentUser.name : "登录 / 注册"}
               </Link>
+              {currentUser?.role === "admin" ? (
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 transition hover:bg-amber-300/15"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  后台管理
+                </Link>
+              ) : null}
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100">
                 <Sparkles className="h-4 w-4" />
                 {currentUser ? "个人记录已隔离" : "登录后开启个人记录"}
