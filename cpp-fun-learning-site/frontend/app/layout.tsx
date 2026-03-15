@@ -3,8 +3,8 @@ import { SiteChrome } from "../components/site-chrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "C++ 趣味学习网站",
-  description: "把 C++ 基础课、Linux 支线与判题练习做成一张可闯关的学习地图。"
+  title: "C++ 竞技学习站",
+  description: "面向 C++ 路径学习、题目练习、个人账号和后台管理的一体化学习平台。"
 };
 
 export default function RootLayout({

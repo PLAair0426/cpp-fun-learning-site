@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"log"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -61,6 +63,13 @@ func (s *Store) SaveSubmission(record SubmissionRecord) bool {
 	}
 
 	if s.cacheSubmission(record) {
+		persisted = true
+	}
+
+	if s.db == nil {
+		s.mu.Lock()
+		s.submissions[record.ID] = record
+		s.mu.Unlock()
 		persisted = true
 	}
 
@@ -123,7 +132,39 @@ func (s *Store) FindSubmission(id string) (SubmissionRecord, bool) {
 		return record, true
 	}
 
+	if s.db == nil {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		record, ok := s.submissions[id]
+		return record, ok
+	}
+
 	return SubmissionRecord{}, false
+}
+
+func (s *Store) listMemoryUserSubmissions(userID string) []SubmissionRecord {
+	if strings.TrimSpace(userID) == "" {
+		return []SubmissionRecord{}
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	items := make([]SubmissionRecord, 0)
+	for _, record := range s.submissions {
+		if record.UserID == userID {
+			items = append(items, record)
+		}
+	}
+
+	sort.Slice(items, func(left, right int) bool {
+		if items[left].CreatedAt.Equal(items[right].CreatedAt) {
+			return items[left].UpdatedAt.After(items[right].UpdatedAt)
+		}
+		return items[left].CreatedAt.After(items[right].CreatedAt)
+	})
+
+	return items
 }
 
 func defaultString(value, fallback string) string {

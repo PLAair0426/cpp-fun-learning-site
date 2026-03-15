@@ -1,23 +1,39 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   ArrowLeft,
+  ArrowRight,
+  BookOpenText,
   CheckCheck,
-  Cpu,
-  Flag,
   Layers3,
   ScrollText,
-  Sparkles,
   Trophy
 } from "lucide-react";
 import { notFound } from "next/navigation";
+import { ProblemDetailHeroExperiment } from "../../../components/problem-detail-hero-experiment";
 import { ProblemPlayground } from "../../../components/problem-playground";
 import { SectionTitle } from "../../../components/section-title";
-import { getPath, getProblem, getProblems, getProgressOverview } from "../../../lib/server-api";
+import {
+  EXPERIMENT_COOKIE_NAMES,
+  resolveProblemDetailApproachVariant
+} from "../../../lib/experiments";
+import { formatLearningTitle } from "../../../lib/problem-labels";
+import {
+  getPath,
+  getProblem,
+  getProblems,
+  getProgressOverview
+} from "../../../lib/server-api";
 
 type Params = Promise<{ slug: string }>;
 
 export default async function ProblemDetailPage({ params }: { params: Params }) {
   const { slug } = await params;
+  const cookieStore = await cookies();
+  const variant = resolveProblemDetailApproachVariant(
+    cookieStore.get(EXPERIMENT_COOKIE_NAMES.problemDetailApproach)?.value
+  );
+
   const [problem, progress, problems] = await Promise.all([
     getProblem(slug),
     getProgressOverview(),
@@ -45,7 +61,7 @@ export default async function ProblemDetailPage({ params }: { params: Params }) 
     nextProblem: nextProblem
       ? {
           href: `/problems/${nextProblem.slug}`,
-          label: "继续练下一题",
+          label: "继续做下一题",
           title: nextProblem.title
         }
       : undefined,
@@ -56,254 +72,252 @@ export default async function ProblemDetailPage({ params }: { params: Params }) 
     }
   };
 
+  const pathProgress = progress.currentPath.progressPercent;
+  const progressRingStyle = {
+    background: `conic-gradient(from 210deg, rgba(91,221,255,0.95) 0 ${pathProgress}%, rgba(255,210,124,0.78) ${pathProgress}% ${Math.min(pathProgress + 10, 100)}%, rgba(255,255,255,0.08) ${Math.min(pathProgress + 10, 100)}% 100%)`
+  };
+
+  const briefSection = (
+    <section id="brief" className="panel-shell rounded-[36px] px-6 py-7 sm:px-8">
+      <SectionTitle
+        badge="题目摘要"
+        title="先读清目标、样例和通过条件"
+        description="这一部分帮助你快速建立题目模型，确认输入输出、边界条件和最值得先验证的点。"
+      />
+
+      <div className="problem-brief-stats mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="admin-subcard problem-brief-card section-strip p-4">
+          <p className="soft-kicker">样例数量</p>
+          <p className="mt-3 text-[2rem] font-semibold leading-none text-white">{problem.examples.length}</p>
+        </div>
+        <div className="admin-subcard problem-brief-card section-strip p-4">
+          <p className="soft-kicker">通过条件</p>
+          <p className="mt-3 text-[2rem] font-semibold leading-none text-white">{problem.acceptance.length}</p>
+        </div>
+        <div className="admin-subcard problem-brief-card section-strip p-4">
+          <p className="soft-kicker">提示条目</p>
+          <p className="mt-3 text-[2rem] font-semibold leading-none text-white">{problem.hints.length}</p>
+        </div>
+      </div>
+
+      <div className="admin-subcard problem-detail-card section-plane mt-6 p-5">
+        <div className="flex items-center gap-3 text-cyan-100">
+          <ScrollText className="h-5 w-5" />
+          <p className="landing-list-title">题目说明</p>
+        </div>
+        <p className="landing-body-copy problem-detail-copy mt-4">{problem.description}</p>
+      </div>
+
+      <div className="problem-detail-columns mt-5 grid gap-5 xl:grid-cols-3">
+        <div className="admin-subcard problem-detail-card section-plane p-5">
+          <div className="flex items-center gap-3 text-cyan-100">
+            <CheckCheck className="h-5 w-5" />
+            <p className="landing-list-title">通过条件</p>
+          </div>
+          {problem.acceptance.length > 0 ? (
+            <ul className="mt-4 space-y-3 landing-body-copy">
+              {problem.acceptance.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="page-empty-state page-empty-state--compact mt-4">
+              <p className="page-empty-state__title">通过条件待补充</p>
+              <p className="page-empty-state__body">当前可先结合题意与样例理解目标，条件说明稍后补齐。</p>
+            </div>
+          )}
+        </div>
+
+        <div className="admin-subcard problem-detail-card section-plane p-5">
+          <div className="flex items-center gap-3 text-amber-100">
+            <BookOpenText className="h-5 w-5" />
+            <p className="landing-list-title">解题提示</p>
+          </div>
+          {problem.hints.length > 0 ? (
+            <ul className="mt-4 space-y-3 landing-body-copy">
+              {problem.hints.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="page-empty-state page-empty-state--compact mt-4">
+              <p className="page-empty-state__title">提示暂未开放</p>
+              <p className="page-empty-state__body">可以先自己试跑样例，后续会补充这道题的思考引导。</p>
+            </div>
+          )}
+        </div>
+
+        <div className="admin-subcard problem-detail-card section-plane p-5">
+          <div className="flex items-center gap-3 text-emerald-100">
+            <Trophy className="h-5 w-5" />
+            <p className="landing-list-title">样例演练</p>
+          </div>
+          <div className="mt-4 space-y-4">
+            {problem.examples.length > 0 ? (
+              problem.examples.map((item, index) => (
+                <div key={`${item.input}-${index}`} className="admin-subcard admin-subcard--muted problem-example-card section-plane section-plane--muted p-4">
+                  <p className="text-[0.8rem] uppercase tracking-[0.12em] text-slate-400">样例 {index + 1}</p>
+                  <div className="mt-3 space-y-2 text-[15px] text-slate-200">
+                    <p>
+                      <span className="text-slate-400">输入：</span>
+                      {item.input}
+                    </p>
+                    <p>
+                      <span className="text-slate-400">输出：</span>
+                      {item.output}
+                    </p>
+                    <p className="landing-list-copy text-slate-300">{item.explanation}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="page-empty-state page-empty-state--compact">
+                <p className="page-empty-state__title">样例稍后补充</p>
+                <p className="page-empty-state__body">你可以先阅读题意并尝试自己构造输入。</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const pathSection = (
+    <section className="panel-shell rounded-[36px] px-6 py-7 sm:px-8">
+      <SectionTitle
+        badge="路径联动"
+        title="把这道题放回你的学习路径里"
+        description="题目不是孤立存在的。做完这道题后，你可以继续主线课程、下一题，或者回到当前路径总览。"
+      />
+
+      <div className="problem-path-grid mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="admin-subcard problem-path-progress-card section-plane p-5">
+          <div className="atlas-progress" style={progressRingStyle}>
+            <div className="atlas-progress__content">
+              <div className="atlas-progress__value">{progress.currentPath.progressPercent}%</div>
+              <div className="atlas-progress__label">进度</div>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2 text-[15px] text-slate-300">
+            <p>当前路径：{progress.currentPath.title}</p>
+            <p>剩余任务：{progress.currentPath.remainingMissions}</p>
+            <p>连续学习：{progress.streak} 天</p>
+          </div>
+        </div>
+
+          <div className="grid gap-4">
+            <div className="problem-brief-stats grid gap-4 md:grid-cols-3">
+              <div className="admin-subcard problem-brief-card section-strip p-4">
+                <p className="soft-kicker">经验值</p>
+                <p className="mt-2 text-[1.55rem] font-semibold leading-[1.2] text-white">{progress.xp}</p>
+              </div>
+              <div className="admin-subcard problem-brief-card section-strip p-4">
+                <p className="soft-kicker">连续学习</p>
+                <p className="mt-2 text-[1.55rem] font-semibold leading-[1.2] text-white">{progress.streak} 天</p>
+              </div>
+              <div className="admin-subcard problem-brief-card section-strip p-4">
+                <p className="soft-kicker">本周目标</p>
+                <p className="mt-2 text-[1.55rem] font-semibold leading-[1.2] text-white">
+                  {progress.weeklyCompleted}/{progress.weeklyTarget}
+              </p>
+            </div>
+          </div>
+
+            <div className="problem-link-grid grid gap-4 md:grid-cols-3">
+              {[recommendations.nextLesson, recommendations.nextProblem, recommendations.pathHome]
+                .filter(Boolean)
+                .map((item) => (
+                  <Link
+                    key={item!.href}
+                    href={item!.href}
+                    className="surface-card problem-nav-card section-plane rounded-[24px] p-5 transition hover:-translate-y-1"
+                  >
+                    <p className="soft-kicker">{item!.label}</p>
+                    <p className="landing-card-title mt-3">
+                      {formatLearningTitle(item!.title)}
+                    </p>
+                    <span className="mt-auto inline-flex items-center gap-2 pt-4 text-[15px] text-cyan-100">
+                      继续前往
+                      <ArrowRight className="h-4 w-4" />
+                    </span>
+                </Link>
+              ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="problem-detail-columns mt-5 grid gap-4 md:grid-cols-3">
+        <div className="admin-subcard problem-detail-card section-plane p-5">
+          <div className="flex items-center gap-3 text-violet-100">
+            <ScrollText className="h-5 w-5" />
+            <p className="landing-list-title">作答节奏</p>
+          </div>
+          <ul className="mt-4 space-y-3 landing-body-copy">
+            <li>先确认输入输出格式，再补边界条件。</li>
+            <li>先跑通样例，再考虑优化表达与结构。</li>
+            <li>正式提交前先看运行日志，避免把明显错误带入判题。</li>
+          </ul>
+        </div>
+
+        <div className="admin-subcard problem-detail-card section-plane p-5">
+          <div className="flex items-center gap-3 text-cyan-100">
+            <Layers3 className="h-5 w-5" />
+            <p className="landing-list-title">推荐动作</p>
+          </div>
+          <ul className="mt-4 space-y-3 landing-body-copy">
+            {progress.recommendedActions.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="admin-subcard problem-detail-card section-plane p-5">
+          <div className="flex items-center gap-3 text-amber-100">
+            <BookOpenText className="h-5 w-5" />
+            <p className="landing-list-title">最近解锁</p>
+          </div>
+          <ul className="mt-4 space-y-3 landing-body-copy text-slate-200">
+            {progress.recentUnlocks.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+
+  const playgroundSection = (
+    <div id="playground">
+      <ProblemPlayground problem={problem} recommendations={recommendations} variant={variant} />
+    </div>
+  );
+
   return (
-    <div className="space-y-8">
-      <Link
-        href="/problems"
-        className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:border-white/20 hover:bg-white/5"
-      >
+    <div className="learn-page space-y-8 pb-8">
+      <Link href="/problems" className="nav-pill learn-page__back w-fit text-[15px] font-medium">
         <ArrowLeft className="h-4 w-4" />
         返回题库
       </Link>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,0.94fr)_minmax(420px,1.06fr)]">
-        <div className="space-y-6">
-          <div className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-violet-100">
-                {problem.type}
-              </span>
-              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-200">
-                {problem.difficulty}
-              </span>
-              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
-                {problem.runtime}
-              </span>
-            </div>
+      <ProblemDetailHeroExperiment variant={variant} problem={problem} progress={progress} />
 
-            <h1 className="mt-5 text-4xl font-semibold text-white">{problem.title}</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-cyan-50/90">{problem.mission}</p>
-            <p className="mt-5 text-base leading-8 text-slate-300">{problem.description}</p>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              {problem.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-white/8 bg-white/5 px-3 py-1.5 text-xs text-slate-300"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">样例数量</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{problem.examples.length}</p>
-              </div>
-              <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">通过条件</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{problem.acceptance.length}</p>
-              </div>
-              <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">提示数量</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{problem.hints.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-[28px] border border-white/8 bg-white/5 p-5">
-              <div className="flex items-center gap-3 text-cyan-100">
-                <CheckCheck className="h-5 w-5" />
-                <p className="text-sm font-medium">通关条件</p>
-              </div>
-              <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-                {problem.acceptance.map((item) => (
-                  <li key={item} className="rounded-[18px] border border-white/8 bg-slate-950/45 px-4 py-3">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-[28px] border border-white/8 bg-white/5 p-5">
-              <div className="flex items-center gap-3 text-amber-100">
-                <Flag className="h-5 w-5" />
-                <p className="text-sm font-medium">解题提示</p>
-              </div>
-              <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-                {problem.hints.map((item) => (
-                  <li key={item} className="rounded-[18px] border border-white/8 bg-slate-950/45 px-4 py-3">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-white/8 bg-slate-950/55 p-5">
-            <SectionTitle
-              badge="Examples"
-              title="样例输入输出拆解"
-              description="先看样例理解题目，再打开右侧 playground 快速验证。每个样例都对应一次完整的输入、处理与输出流程。"
-            />
-            <div className="mt-5 space-y-4">
-              {problem.examples.map((example, index) => (
-                <div
-                  key={`${example.input}-${index}`}
-                  className="rounded-[24px] border border-white/8 bg-white/5 p-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs uppercase tracking-[0.28em] text-slate-400">
-                      Example {index + 1}
-                    </p>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">
-                      适合先手推再运行
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Input</p>
-                      <pre className="mt-2 overflow-x-auto rounded-[20px] border border-white/8 bg-slate-950/80 p-4 text-sm text-cyan-100">
-                        <code>{example.input}</code>
-                      </pre>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Output</p>
-                      <pre className="mt-2 overflow-x-auto rounded-[20px] border border-white/8 bg-slate-950/80 p-4 text-sm text-emerald-100">
-                        <code>{example.output}</code>
-                      </pre>
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-sm leading-7 text-slate-300">{example.explanation}</p>
-                </div>
-              ))}
-            </div>
+      {variant === "a" ? (
+        <div className="space-y-8">
+          {playgroundSection}
+          <div className="grid gap-6 xl:grid-cols-2">
+            {briefSection}
+            {pathSection}
           </div>
         </div>
-
-        <div className="space-y-6">
-          <div className="panel-shell rounded-[34px] px-4 py-4 sm:px-5 sm:py-5">
-            <div className="mb-4 flex items-center justify-between gap-4 px-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Runner</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">在线试跑与正式提交</h2>
-              </div>
-              <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-cyan-100">
-                <Cpu className="h-5 w-5" />
-              </div>
-            </div>
-            <ProblemPlayground problem={problem} recommendations={recommendations} />
+      ) : (
+        <div className="space-y-8">
+          <div className="grid gap-6 xl:grid-cols-2">
+            {briefSection}
+            {pathSection}
           </div>
-
-          <div className="panel-shell rounded-[30px] px-6 py-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl border border-violet-300/20 bg-violet-300/10 p-3 text-violet-100">
-                  <Trophy className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.36em] text-violet-200/80">Progress Pulse</p>
-                  <h2 className="mt-1 text-xl font-semibold text-white">{progress.currentPath.title}</h2>
-                </div>
-              </div>
-              <Link
-                href={`/paths/${progress.currentPath.slug}`}
-                className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-100 transition hover:border-cyan-300/20 hover:bg-white/5"
-              >
-                查看路径
-              </Link>
-            </div>
-
-            <div className="mt-5 overflow-hidden rounded-full border border-white/8 bg-slate-950/70">
-              <div
-                className="h-3 rounded-full bg-gradient-to-r from-emerald-300 via-cyan-300 to-violet-300"
-                style={{ width: `${progress.currentPath.progressPercent}%` }}
-              />
-            </div>
-
-            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-slate-300">
-              <span>当前进度 {progress.currentPath.progressPercent}%</span>
-              <span>剩余任务 {progress.currentPath.remainingMissions}</span>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Link
-                href={recommendations.nextLesson.href}
-                className="rounded-[22px] border border-white/8 bg-white/5 p-4 transition hover:bg-white/8"
-              >
-                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">下一节课</p>
-                <p className="mt-2 text-sm leading-7 text-white">{progress.currentPath.nextLessonTitle}</p>
-              </Link>
-              <Link
-                href={recommendations.nextProblem?.href ?? "/problems"}
-                className="rounded-[22px] border border-white/8 bg-white/5 p-4 transition hover:bg-white/8"
-              >
-                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">下一道练习</p>
-                <p className="mt-2 text-sm leading-7 text-white">{progress.currentPath.nextProblemTitle}</p>
-              </Link>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">累计 XP</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{progress.xp}</p>
-              </div>
-              <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">连续学习</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{progress.streak} 天</p>
-              </div>
-              <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">本周目标</p>
-                <p className="mt-2 text-2xl font-semibold text-white">
-                  {progress.weeklyCompleted}/{progress.weeklyTarget}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-1">
-            <div className="rounded-[28px] border border-white/8 bg-white/5 p-5">
-              <div className="flex items-center gap-3 text-violet-100">
-                <ScrollText className="h-5 w-5" />
-                <p className="text-sm font-medium">作答节奏</p>
-              </div>
-              <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-                <li>先根据描述补齐核心逻辑，再对照样例检查边界。</li>
-                <li>输入题建议先手写一轮标准输入输出格式。</li>
-                <li>提交前查看 Console Output，确认没有编译警告。</li>
-              </ul>
-            </div>
-
-            <div className="rounded-[28px] border border-white/8 bg-white/5 p-5">
-              <div className="flex items-center gap-3 text-cyan-100">
-                <Layers3 className="h-5 w-5" />
-                <p className="text-sm font-medium">推荐动作</p>
-              </div>
-              <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-                {progress.recommendedActions.slice(0, 3).map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-[28px] border border-amber-300/15 bg-amber-300/8 p-5">
-              <div className="flex items-center gap-3 text-amber-100">
-                <Sparkles className="h-5 w-5" />
-                <p className="text-sm font-medium">最近解锁</p>
-              </div>
-              <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-200">
-                {progress.recentUnlocks.slice(0, 3).map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          {playgroundSection}
         </div>
-      </section>
+      )}
     </div>
   );
 }

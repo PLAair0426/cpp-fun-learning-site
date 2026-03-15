@@ -202,21 +202,21 @@ func (s *Service) writeHeartbeat(ctx context.Context, queueDepth int) error {
 	heartbeatCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	payload := map[string]any{
-		"service":      "cpp-learning-worker",
-		"pid":          os.Getpid(),
-		"queueDepth":   queueDepth,
-		"mockJudge":    s.cfg.EnableMockJudge,
-		"judge0URL":    s.cfg.Judge0URL,
-		"timestamp":    time.Now().Format(time.RFC3339Nano),
-		"pollInterval": s.cfg.PollInterval.String(),
+	if err := s.redis.HSet(
+		heartbeatCtx,
+		s.cfg.HeartbeatKey,
+		"service", "cpp-learning-worker",
+		"pid", os.Getpid(),
+		"queueDepth", queueDepth,
+		"mockJudge", s.cfg.EnableMockJudge,
+		"judge0URL", s.cfg.Judge0URL,
+		"timestamp", time.Now().Format(time.RFC3339Nano),
+		"pollInterval", s.cfg.PollInterval.String(),
+	).Err(); err != nil {
+		return err
 	}
 
-	pipe := s.redis.TxPipeline()
-	pipe.HSet(heartbeatCtx, s.cfg.HeartbeatKey, payload)
-	pipe.Expire(heartbeatCtx, s.cfg.HeartbeatKey, s.cfg.HeartbeatTTL)
-	_, err := pipe.Exec(heartbeatCtx)
-	return err
+	return s.redis.Expire(heartbeatCtx, s.cfg.HeartbeatKey, s.cfg.HeartbeatTTL).Err()
 }
 
 func (s *Service) setSnapshot(tickAt time.Time, queueIDs []string, err error) {

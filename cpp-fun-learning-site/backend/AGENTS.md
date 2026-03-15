@@ -1,17 +1,15 @@
 # AI Agent Context
 
-本目录承担项目运行、规范和工程协作资产。
+This directory covers project runtime, specifications, and backend collaboration assets.
 
 ## ALWAYS
-
-- 先阅读 `meta/specification/project-specification.md`
-- 优先读取 `meta/.template/template-state.json`
-- 草稿写入 `meta/generated/`
-- 正式文档写入 `../frontend/content/docs/`
-- 修改路径后同步修正文档引用
+- Read `meta/specification/project-specification.md` first
+- Prefer `meta/.template/template-state.json` for template state
+- Write draft outputs into `meta/generated/`
+- Write formal docs into `../frontend/content/docs/`
+- Keep document references in sync after path changes
 
 ## NEVER
-
-- 不把未确认内容写成正式事实
-- 不把敏感配置写入仓库
-- 不绕过固定模板直接输出复杂执行方案
+- Do not present unconfirmed content as settled fact
+- Do not write sensitive configuration into the repository
+- Do not bypass the agreed templates for complex execution plans

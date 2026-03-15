@@ -4,3 +4,6 @@ Thumbs.db
 node_modules/
 .next/
 coverage/
+*.log
+*.err.log
+*.tsbuildinfo

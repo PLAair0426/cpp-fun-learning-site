@@ -113,7 +113,7 @@ func (s *Server) Router() http.Handler {
 
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", s.cfg.CORSOrigin)
+		w.Header().Set("Access-Control-Allow-Origin", s.resolveCORSOrigin(r))
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -125,6 +125,32 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) resolveCORSOrigin(r *http.Request) string {
+	requestOrigin := strings.TrimSpace(r.Header.Get("Origin"))
+	if requestOrigin == "" {
+		return firstAllowedOrigin(s.cfg.CORSOrigin)
+	}
+
+	for _, candidate := range strings.Split(s.cfg.CORSOrigin, ",") {
+		if strings.TrimSpace(candidate) == requestOrigin {
+			return requestOrigin
+		}
+	}
+
+	return firstAllowedOrigin(s.cfg.CORSOrigin)
+}
+
+func firstAllowedOrigin(value string) string {
+	for _, candidate := range strings.Split(value, ",") {
+		trimmed := strings.TrimSpace(candidate)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+
+	return ""
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -526,13 +552,13 @@ func advanceLocalSubmission(record store.SubmissionRecord) (store.SubmissionReco
 func submissionStatusDetail(status string) string {
 	switch status {
 	case "QUEUED":
-		return "Queued and waiting for worker processing."
+		return "任务已进入队列，正在等待处理。"
 	case "RUNNING":
-		return "Worker is processing the submission."
+		return "系统正在处理这次提交。"
 	case "FINISHED":
-		return "Submission finished and result has been written back."
+		return "提交已经完成，结果已写回记录。"
 	default:
-		return "Submission status recorded."
+		return "已记录当前提交状态。"
 	}
 }
 
@@ -542,11 +568,11 @@ func simulateRun(req RunRequest) (stdout string, compileOutput string, status st
 
 	switch {
 	case strings.Contains(normalized, "todo") && !strings.Contains(normalized, "cout"):
-		return "", "Incomplete code detected. Please finish the logic.", "NEEDS_WORK"
+		return "", "检测到代码还未补全，请先完成核心逻辑。", "NEEDS_WORK"
 	case strings.Contains(normalized, "syntax_error"):
-		return "", "Mock compile failed: check semicolons or brackets.", "COMPILE_ERROR"
+		return "", "模拟编译失败：请检查分号、括号或语法。", "COMPILE_ERROR"
 	case strings.Contains(normalized, "g++ hello.cpp -o hello") && strings.Contains(normalized, "./hello"):
-		return "Compile command order is correct. Linux path can continue.", "", "ACCEPTED"
+		return "编译命令顺序正确，可以继续练习 Linux 命令链路。", "", "ACCEPTED"
 	case strings.Contains(normalized, "hello c++"):
 		return "Hello C++", "", "ACCEPTED"
 	case strings.Contains(normalized, "2+3*4") || strings.Contains(normalized, "2 + 3 * 4") || strings.Contains(normalized, "priorityscore"):
@@ -588,8 +614,8 @@ func simulateRun(req RunRequest) (stdout string, compileOutput string, status st
 	case strings.Contains(normalized, "pass") || strings.Contains(normalized, "retry"):
 		return "PASS", "", "ACCEPTED"
 	case strings.Contains(normalized, "swapvalue") || strings.Contains(normalized, "delete"):
-		return "Mock execution finished: logic structure recognized.", "", "ACCEPTED"
+		return "模拟执行完成：已识别到你的逻辑结构。", "", "ACCEPTED"
 	default:
-		return "Mock runner accepted the code and returned instant feedback.", "", "RUN_FINISHED"
+		return "模拟运行器已接收代码，并返回即时反馈。", "", "RUN_FINISHED"
 	}
 }

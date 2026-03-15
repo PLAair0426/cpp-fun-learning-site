@@ -280,57 +280,70 @@ func (s *Service) saveSubmissionToRedis(ctx context.Context, record SubmissionRe
 	writeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	pipe := s.redis.TxPipeline()
 	hashKey := fmt.Sprintf(submissionHashKey, record.ID)
-	payload := map[string]any{
-		"id":             record.ID,
-		"problem_slug":   record.ProblemSlug,
-		"user_id":        record.UserID,
-		"submit_type":    record.SubmitType,
-		"language":       record.Language,
-		"status":         record.Status,
-		"result":         record.Result,
-		"judge0_token":   record.Judge0Token,
-		"source_code":    record.SourceCode,
-		"stdin":          record.Input,
-		"stdout":         record.Stdout,
-		"compile_output": record.CompileOutput,
-		"created_at":     record.CreatedAt.Format(time.RFC3339Nano),
-		"updated_at":     record.UpdatedAt.Format(time.RFC3339Nano),
-	}
+	finishedAt := ""
 	if record.FinishedAt != nil {
-		payload["finished_at"] = record.FinishedAt.Format(time.RFC3339Nano)
-	} else {
-		payload["finished_at"] = ""
+		finishedAt = record.FinishedAt.Format(time.RFC3339Nano)
 	}
 
-	pipe.HSet(writeCtx, hashKey, payload)
-	pipe.Expire(writeCtx, hashKey, submissionCacheTTL)
-	pipe.LPush(writeCtx, submissionEventLog, fmt.Sprintf(
+	if err := s.redis.HSet(
+		writeCtx,
+		hashKey,
+		"id", record.ID,
+		"problem_slug", record.ProblemSlug,
+		"user_id", record.UserID,
+		"submit_type", record.SubmitType,
+		"language", record.Language,
+		"status", record.Status,
+		"result", record.Result,
+		"judge0_token", record.Judge0Token,
+		"source_code", record.SourceCode,
+		"stdin", record.Input,
+		"stdout", record.Stdout,
+		"compile_output", record.CompileOutput,
+		"created_at", record.CreatedAt.Format(time.RFC3339Nano),
+		"updated_at", record.UpdatedAt.Format(time.RFC3339Nano),
+		"finished_at", finishedAt,
+	).Err(); err != nil {
+		return err
+	}
+	if err := s.redis.Expire(writeCtx, hashKey, submissionCacheTTL).Err(); err != nil {
+		return err
+	}
+	if err := s.redis.LPush(writeCtx, submissionEventLog, fmt.Sprintf(
 		`{"id":"%s","problem":"%s","status":"%s","result":"%s","updatedAt":"%s"}`,
 		record.ID,
 		record.ProblemSlug,
 		record.Status,
 		record.Result,
 		record.UpdatedAt.Format(time.RFC3339Nano),
-	))
-	pipe.LTrim(writeCtx, submissionEventLog, 0, 499)
+	)).Err(); err != nil {
+		return err
+	}
+	if err := s.redis.LTrim(writeCtx, submissionEventLog, 0, 499).Err(); err != nil {
+		return err
+	}
 
 	switch record.Status {
 	case "QUEUED", "RUNNING":
-		pipe.ZAdd(writeCtx, submissionPendingKey, redis.Z{
+		if err := s.redis.ZAdd(writeCtx, submissionPendingKey, redis.Z{
 			Score:  float64(record.CreatedAt.Unix()),
 			Member: record.ID,
-		})
+		}).Err(); err != nil {
+			return err
+		}
 		if record.Status == "QUEUED" {
-			pipe.SetNX(writeCtx, fmt.Sprintf(submissionSeenKey, record.ID), "1", submissionCacheTTL)
+			if err := s.redis.SetNX(writeCtx, fmt.Sprintf(submissionSeenKey, record.ID), "1", submissionCacheTTL).Err(); err != nil {
+				return err
+			}
 		}
 	default:
-		pipe.ZRem(writeCtx, submissionPendingKey, record.ID)
+		if err := s.redis.ZRem(writeCtx, submissionPendingKey, record.ID).Err(); err != nil {
+			return err
+		}
 	}
 
-	_, err := pipe.Exec(writeCtx)
-	return err
+	return nil
 }
 
 func advanceMockSubmission(record SubmissionRecord, now time.Time) (SubmissionRecord, bool) {

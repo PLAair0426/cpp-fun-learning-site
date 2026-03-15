@@ -1,16 +1,16 @@
 # Backend Workspace
 
-这里承载项目的运行入口与工程协作资产：
+This directory contains the runtime entry points and collaboration assets for the backend side of the project.
 
-- `api/`：Go API 服务
-- `worker/`：Go Worker 服务
-- `deployments/`：Docker Compose 与本地启动 / 停止脚本
-- `sql/`：数据库迁移
-- `meta/`：规范、模板、草稿、分析与项目协作文档
-- `Makefile`：后端侧统一命令入口
-- `.env` / `.env.example`：本地环境配置
+- `api/`: Go API service
+- `worker/`: Go worker service
+- `deployments/`: Docker Compose files and local start/stop scripts
+- `sql/`: database migrations
+- `meta/`: specifications, templates, generated notes, and project docs
+- `Makefile`: common backend command entry point
+- `.env` / `.env.example`: local environment configuration
 
-常用命令：
+Common commands:
 
 ```powershell
 cd backend

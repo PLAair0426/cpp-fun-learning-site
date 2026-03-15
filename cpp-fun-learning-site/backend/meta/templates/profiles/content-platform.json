@@ -1,6 +1,6 @@
-﻿{
+{
   "profile": "content-platform",
-  "description": "閫傜敤浜庤绋嬨€佸獟浣撱€佸唴瀹逛腑鍙般€佺煡璇嗗簱涓庤繍钀ュ钩鍙扮瓑鍐呭椹卞姩鍨嬮」鐩€?,
+  "description": "适用于内容平台项目，强调内容生产流程、前端展示、后端 API 与运营文档。",
   "variables": {
     "PROJECT_TYPE": "Content Platform",
     "PRIMARY_STACK": "Content Workflow + Web Frontend + API",
@@ -27,5 +27,3 @@
     ]
   }
 }
-
-

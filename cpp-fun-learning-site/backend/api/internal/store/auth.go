@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -284,7 +285,7 @@ func (s *Store) DeleteSession(token string) error {
 
 func (s *Store) ListUserSubmissions(userID string, limit int) []UserSubmissionSummary {
 	if strings.TrimSpace(userID) == "" {
-		return nil
+		return []UserSubmissionSummary{}
 	}
 	if limit <= 0 {
 		limit = 12
@@ -334,7 +335,30 @@ func (s *Store) ListUserSubmissions(userID string, limit int) []UserSubmissionSu
 		return items
 	}
 
-	return nil
+	records := s.listMemoryUserSubmissions(userID)
+	if len(records) > limit {
+		records = records[:limit]
+	}
+
+	problemTitles := make(map[string]string, len(s.currentProblems()))
+	for _, problem := range s.currentProblems() {
+		problemTitles[problem.Slug] = problem.Title
+	}
+
+	items := make([]UserSubmissionSummary, 0, len(records))
+	for _, record := range records {
+		items = append(items, UserSubmissionSummary{
+			SubmissionID: record.ID,
+			ProblemSlug:  record.ProblemSlug,
+			ProblemTitle: defaultString(problemTitles[record.ProblemSlug], record.ProblemSlug),
+			Status:       record.Status,
+			Result:       record.Result,
+			CreatedAt:    record.CreatedAt,
+			UpdatedAt:    record.UpdatedAt,
+		})
+	}
+
+	return items
 }
 
 func normalizeEmail(email string) string {
@@ -461,9 +485,41 @@ func (s *Store) ListUsersForAdmin() []AdminUserDetail {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	items := make([]AdminUserDetail, 0, len(s.usersByID))
-	for _, user := range s.usersByID {
-		items = append(items, AdminUserDetail{UserAccount: user})
+	submissionCountByUser := make(map[string]int)
+	acceptedCountByUser := make(map[string]int)
+	lastActiveAtByUser := make(map[string]time.Time)
+
+	for _, submission := range s.submissions {
+		if submission.UserID == "" {
+			continue
+		}
+
+		submissionCountByUser[submission.UserID]++
+		if submission.Result == "ACCEPTED" {
+			acceptedCountByUser[submission.UserID]++
+		}
+		if submission.UpdatedAt.After(lastActiveAtByUser[submission.UserID]) {
+			lastActiveAtByUser[submission.UserID] = submission.UpdatedAt
+		}
 	}
+
+	for _, user := range s.usersByID {
+		item := AdminUserDetail{
+			UserAccount:     user,
+			SubmissionCount: submissionCountByUser[user.ID],
+			AcceptedCount:   acceptedCountByUser[user.ID],
+			LastActiveAt:    user.CreatedAt,
+		}
+		if lastActiveAt, ok := lastActiveAtByUser[user.ID]; ok {
+			item.LastActiveAt = lastActiveAt
+		}
+		items = append(items, item)
+	}
+
+	sort.Slice(items, func(left, right int) bool {
+		return items[left].CreatedAt.After(items[right].CreatedAt)
+	})
+
 	return items
 }
 

@@ -78,26 +78,28 @@ func (s *Store) seedLeaderboardCache(ctx context.Context) error {
 	}
 
 	members := make([]redis.Z, 0, len(s.leaderboard))
-	pipe := s.redis.TxPipeline()
 
 	for _, entry := range s.leaderboard {
 		members = append(members, redis.Z{
 			Score:  float64(entry.XP),
 			Member: entry.Name,
 		})
-		pipe.HSet(ctx, fmt.Sprintf(leaderboardProfile, entry.Name), map[string]any{
-			"name":   entry.Name,
-			"title":  entry.Title,
-			"streak": entry.Streak,
-		})
+		if err := s.redis.HSet(
+			ctx,
+			fmt.Sprintf(leaderboardProfile, entry.Name),
+			"name", entry.Name,
+			"title", entry.Title,
+			"streak", entry.Streak,
+		).Err(); err != nil {
+			return err
+		}
 	}
 
 	if len(members) > 0 {
-		pipe.ZAdd(ctx, leaderboardKey, members...)
+		return s.redis.ZAdd(ctx, leaderboardKey, members...).Err()
 	}
 
-	_, err = pipe.Exec(ctx)
-	return err
+	return nil
 }
 
 func (s *Store) loadLeaderboardCache() ([]LeaderboardEntry, bool) {
@@ -155,58 +157,74 @@ func (s *Store) cacheSubmission(record SubmissionRecord) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	pipe := s.redis.TxPipeline()
 	hashKey := fmt.Sprintf(submissionHashKey, record.ID)
-	payload := map[string]any{
-		"id":             record.ID,
-		"problem_slug":   record.ProblemSlug,
-		"user_id":        record.UserID,
-		"submit_type":    record.SubmitType,
-		"language":       record.Language,
-		"status":         record.Status,
-		"result":         record.Result,
-		"judge0_token":   record.Judge0Token,
-		"source_code":    record.SourceCode,
-		"stdin":          record.Input,
-		"stdout":         record.Stdout,
-		"compile_output": record.CompileOutput,
-		"created_at":     record.CreatedAt.Format(time.RFC3339Nano),
-		"updated_at":     record.UpdatedAt.Format(time.RFC3339Nano),
-	}
+	finishedAt := ""
 	if record.FinishedAt != nil {
-		payload["finished_at"] = record.FinishedAt.Format(time.RFC3339Nano)
-	} else {
-		payload["finished_at"] = ""
+		finishedAt = record.FinishedAt.Format(time.RFC3339Nano)
 	}
 
-	pipe.HSet(ctx, hashKey, payload)
-	pipe.Expire(ctx, hashKey, submissionCacheTTL)
-	pipe.LPush(ctx, submissionEventLog, fmt.Sprintf(
+	if err := s.redis.HSet(
+		ctx,
+		hashKey,
+		"id", record.ID,
+		"problem_slug", record.ProblemSlug,
+		"user_id", record.UserID,
+		"submit_type", record.SubmitType,
+		"language", record.Language,
+		"status", record.Status,
+		"result", record.Result,
+		"judge0_token", record.Judge0Token,
+		"source_code", record.SourceCode,
+		"stdin", record.Input,
+		"stdout", record.Stdout,
+		"compile_output", record.CompileOutput,
+		"created_at", record.CreatedAt.Format(time.RFC3339Nano),
+		"updated_at", record.UpdatedAt.Format(time.RFC3339Nano),
+		"finished_at", finishedAt,
+	).Err(); err != nil {
+		log.Printf("redis submission hash write failed for %s: %v", record.ID, err)
+		return false
+	}
+	if err := s.redis.Expire(ctx, hashKey, submissionCacheTTL).Err(); err != nil {
+		log.Printf("redis submission expiry write failed for %s: %v", record.ID, err)
+		return false
+	}
+	if err := s.redis.LPush(ctx, submissionEventLog, fmt.Sprintf(
 		`{"id":"%s","problem":"%s","status":"%s","result":"%s","updatedAt":"%s"}`,
 		record.ID,
 		record.ProblemSlug,
 		record.Status,
 		record.Result,
 		record.UpdatedAt.Format(time.RFC3339Nano),
-	))
-	pipe.LTrim(ctx, submissionEventLog, 0, 499)
+	)).Err(); err != nil {
+		log.Printf("redis submission event write failed for %s: %v", record.ID, err)
+		return false
+	}
+	if err := s.redis.LTrim(ctx, submissionEventLog, 0, 499).Err(); err != nil {
+		log.Printf("redis submission event trim failed for %s: %v", record.ID, err)
+		return false
+	}
 
 	switch record.Status {
 	case "QUEUED", "RUNNING":
-		pipe.ZAdd(ctx, submissionPending, redis.Z{
+		if err := s.redis.ZAdd(ctx, submissionPending, redis.Z{
 			Score:  float64(record.CreatedAt.Unix()),
 			Member: record.ID,
-		})
+		}).Err(); err != nil {
+			log.Printf("redis pending queue write failed for %s: %v", record.ID, err)
+			return false
+		}
 		if record.Status == "QUEUED" {
-			pipe.SetNX(ctx, fmt.Sprintf(submissionSeenKey, record.ID), "1", submissionCacheTTL)
+			if err := s.redis.SetNX(ctx, fmt.Sprintf(submissionSeenKey, record.ID), "1", submissionCacheTTL).Err(); err != nil {
+				log.Printf("redis submission seen write failed for %s: %v", record.ID, err)
+				return false
+			}
 		}
 	default:
-		pipe.ZRem(ctx, submissionPending, record.ID)
-	}
-
-	if _, err := pipe.Exec(ctx); err != nil {
-		log.Printf("redis submission cache failed for %s: %v", record.ID, err)
-		return false
+		if err := s.redis.ZRem(ctx, submissionPending, record.ID).Err(); err != nil {
+			log.Printf("redis pending queue remove failed for %s: %v", record.ID, err)
+			return false
+		}
 	}
 
 	return true

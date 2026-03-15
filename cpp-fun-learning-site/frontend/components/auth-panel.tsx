@@ -1,88 +1,52 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
-import { publicApiBaseUrl, type UserSummary } from "../lib/api";
+import { useState } from "react";
+import { ArrowRight, LogOut, Sparkles } from "lucide-react";
+import type { UserSummary } from "../lib/api";
+import { publicApiBaseUrl } from "../lib/api";
+import { buildAuthAccessHref } from "../lib/auth-links";
+import type { AuthAccessVariant } from "../lib/experiments";
+import { formatDisplayName } from "../lib/problem-labels";
 
 type AuthPanelProps = {
   currentUser: UserSummary | null;
+  variant?: AuthAccessVariant;
 };
 
-type Mode = "login" | "register";
-
-const modeCopy: Record<
-  Mode,
+const variantCopy: Record<AuthAccessVariant, { badge: string; title: string; points: string[] }> =
   {
-    title: string;
-    description: string;
-    action: string;
-    endpoint: string;
-  }
-> = {
-  login: {
-    title: "欢迎回来",
-    description: "登录后可查看自己的提交记录、进度和成长数据。",
-    action: "登录",
-    endpoint: "/api/v1/auth/login"
-  },
-  register: {
-    title: "创建学习账号",
-    description: "注册后每位使用者都会拥有独立的题目记录与成长面板。",
-    action: "注册并开始学习",
-    endpoint: "/api/v1/auth/register"
-  }
-};
+    a: {
+      badge: "学习档案",
+      title: "把每一次练习结果稳定地留在你自己的学习空间里。",
+      points: [
+        "提交历史会牢牢绑定在当前登录账号下。",
+        "进度、连击和推荐动作会跟随你的学习会话持续保存。",
+        "管理员仍可进入后台，但不会和普通用户的记录混在一起。"
+      ]
+    },
+    b: {
+      badge: "开始学习",
+      title: "创建账号后，就能立刻回到你的学习主线。",
+      points: [
+        "更少点击就能回到下一节课或下一道题。",
+        "保存连贯进度，让练习节奏不断档。",
+        "无论何时再次打开，都能继续同一条学习轨迹。"
+      ]
+    }
+  };
 
-export function AuthPanel({ currentUser }: AuthPanelProps) {
+export function AuthPanel({
+  currentUser,
+  variant = "a"
+}: AuthPanelProps) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("login");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const activeCopy = useMemo(() => modeCopy[mode], [mode]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await fetch(`${publicApiBaseUrl}${activeCopy.endpoint}`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password
-        })
-      });
-
-      const payload = (await response.json()) as { error?: string; user?: UserSummary };
-      if (!response.ok) {
-        throw new Error(payload.error ?? `请求失败：${response.status}`);
-      }
-
-      setMessage(mode === "login" ? "登录成功，正在刷新你的个人面板。" : "注册成功，已为你创建个人学习空间。");
-      setPassword("");
-      if (mode === "register") {
-        setName("");
-      }
-      router.refresh();
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "发生未知错误");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const activeVariant = variantCopy[variant];
 
   async function handleLogout() {
     setIsSubmitting(true);
@@ -95,11 +59,12 @@ export function AuthPanel({ currentUser }: AuthPanelProps) {
         credentials: "include",
         headers: { Accept: "application/json" }
       });
+
       if (!response.ok) {
         throw new Error(`退出失败：${response.status}`);
       }
 
-      setMessage("你已安全退出。");
+      setMessage("你已安全退出登录。");
       router.refresh();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "退出失败");
@@ -110,151 +75,133 @@ export function AuthPanel({ currentUser }: AuthPanelProps) {
 
   if (currentUser) {
     return (
-      <section className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
-        <p className="text-xs uppercase tracking-[0.32em] text-cyan-200/80">Account</p>
-        <h2 className="mt-4 text-3xl font-semibold text-white">{currentUser.name}</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-          你已登录，后续正式提交、提交结果和成长数据都会隔离到当前账号下。
-        </p>
+      <section id="auth-panel" className="panel-shell auth-panel-column rounded-[36px] p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="soft-kicker">账号已激活</p>
+            <h2 className="mt-2 text-[2rem] font-semibold leading-[1.2] text-white md:text-[2.15rem]">
+              {formatDisplayName(currentUser.name)}
+            </h2>
+            <p className="mt-3 max-w-2xl text-[15px] leading-8 text-slate-300 md:text-base">
+              你的学习记录已经与当前账号绑定，新的提交和成长数据都会单独归档。
+            </p>
+          </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">账号邮箱</p>
-            <p className="mt-3 text-lg font-medium text-white">{currentUser.email}</p>
-          </div>
-          <div className="rounded-[24px] border border-emerald-300/20 bg-emerald-300/10 p-5 text-emerald-50">
-            <p className="text-xs uppercase tracking-[0.24em] opacity-80">记录隔离</p>
-            <p className="mt-3 text-lg font-medium">已启用个人提交记录与成长面板</p>
-          </div>
-        </div>
-
-        {message ? (
-          <div className="mt-5 rounded-[22px] border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-50">
-            {message}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mt-5 rounded-[22px] border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm text-rose-50">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => {
-              void handleLogout();
-            }}
+            onClick={handleLogout}
             disabled={isSubmitting}
-            className="rounded-full border border-white/10 px-5 py-3 text-sm text-white transition hover:border-white/20 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="nav-pill px-4 py-2 text-sm font-medium"
           >
-            {isSubmitting ? "正在退出..." : "退出登录"}
+            <LogOut className="h-4 w-4" />
+            {isSubmitting ? "退出中..." : "退出登录"}
           </button>
         </div>
+
+        <div className="auth-status-grid mt-6 grid gap-4 md:grid-cols-3">
+          <div className="admin-subcard admin-subcard--muted auth-status-card rounded-[24px] p-5">
+            <p className="soft-kicker">邮箱</p>
+            <p className="mt-3 text-[1.02rem] font-semibold leading-7 text-white">
+              {currentUser.email}
+            </p>
+          </div>
+          <div className="admin-subcard admin-subcard--muted auth-status-card rounded-[24px] p-5">
+            <p className="soft-kicker">角色</p>
+            <p className="mt-3 text-[1.02rem] font-semibold leading-7 text-white">
+              {currentUser.role === "admin" ? "管理员" : "学习者"}
+            </p>
+          </div>
+          <div className="admin-subcard admin-subcard--muted auth-status-card rounded-[24px] p-5">
+            <p className="soft-kicker">状态</p>
+            <p className="mt-3 text-[1.02rem] font-semibold leading-7 text-white">
+              {currentUser.isActive ? "可以继续学习" : "暂未启用"}
+            </p>
+          </div>
+        </div>
+
+        <div className="page-action-row mt-6">
+          <Link href="/paths" className="nav-pill nav-pill--accent px-5 py-3 text-sm font-medium">
+            打开学习路径
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link href="/problems" className="nav-pill px-5 py-3 text-sm font-medium">
+            进入题目练习
+            <Sparkles className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {message ? <p className="site-note site-note--success mt-5">{message}</p> : null}
+        {error ? <p className="site-note site-note--danger mt-5">{error}</p> : null}
       </section>
     );
   }
 
   return (
-    <section className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.32em] text-cyan-200/80">Account</p>
-          <h2 className="mt-4 text-3xl font-semibold text-white">{activeCopy.title}</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">{activeCopy.description}</p>
+    <section id="auth-panel" className="auth-panel-grid grid gap-5 xl:grid-cols-2">
+      <div className="panel-shell auth-panel-column auth-panel-column--context rounded-[36px] p-6">
+        <div className="section-heading__badge">
+          <Sparkles className="h-4 w-4" />
+          <span>{activeVariant.badge}</span>
         </div>
 
-        <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1">
-          {(["login", "register"] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => {
-                setMode(item);
-                setError("");
-                setMessage("");
-              }}
-              className={`rounded-full px-4 py-2 text-sm transition ${
-                mode === item ? "bg-cyan-300/15 text-cyan-50" : "text-slate-300 hover:text-white"
-              }`}
+        <h2 className="mt-5 text-[1.9rem] font-semibold leading-[1.24] text-white md:text-[2.05rem]">
+          {activeVariant.title}
+        </h2>
+        <p className="mt-4 text-[15px] leading-8 text-slate-300 md:text-base">
+          登录和注册已经迁移到独立入口页；这里保留账号状态、学习记录和后续操作入口。
+        </p>
+
+        <div className="auth-point-list mt-5 grid gap-3">
+          {activeVariant.points.map((point) => (
+            <div
+              key={point}
+              className="admin-subcard admin-subcard--muted auth-point-card rounded-[24px] p-4"
             >
-              {item === "login" ? "登录" : "注册"}
-            </button>
+              <p className="landing-body-copy">{point}</p>
+            </div>
           ))}
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-8 grid gap-4 md:grid-cols-2">
-        {mode === "register" ? (
-          <label className="grid gap-2">
-            <span className="text-sm text-slate-300">昵称</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="rounded-[20px] border border-white/10 bg-slate-950/55 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
-              placeholder="例如：小林同学"
-            />
-          </label>
-        ) : (
-          <div className="rounded-[24px] border border-cyan-300/10 bg-cyan-300/5 p-4 text-sm leading-7 text-cyan-50/90 md:row-span-2">
-            登录后，正式提交的状态流、通过记录和成长数据都会绑定到当前账号，不再与其他使用者混在一起。
-          </div>
-        )}
+      <div className="panel-shell auth-panel-column auth-panel-column--form rounded-[36px] p-6">
+        <p className="soft-kicker">账号入口</p>
+        <h2 className="mt-2 text-[1.9rem] font-semibold leading-[1.22] text-white md:text-[2.05rem]">
+          前往独立页面完成登录或注册
+        </h2>
+        <p className="mt-3 text-[15px] leading-8 text-slate-300 md:text-base">
+          完成账号操作后，会自动返回账号中心或当前学习入口，不再和用户面板混在一起。
+        </p>
 
-        <label className="grid gap-2">
-          <span className="text-sm text-slate-300">邮箱</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="rounded-[20px] border border-white/10 bg-slate-950/55 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
-            placeholder="name@example.com"
-          />
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-sm text-slate-300">密码</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="rounded-[20px] border border-white/10 bg-slate-950/55 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
-            placeholder="至少 6 位"
-          />
-        </label>
-
-        <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm leading-7 text-slate-300">
-          <p className="font-medium text-white">为什么要登录？</p>
-          <ul className="mt-3 space-y-2">
-            <li>· 每位学习者拥有独立提交记录</li>
-            <li>· 进度与 XP 不会和其他人互相污染</li>
-            <li>· 题目状态流只对当前账号可见</li>
-          </ul>
-        </div>
-
-        <div className="md:col-span-2">
-          {message ? (
-            <div className="rounded-[22px] border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-50">
-              {message}
-            </div>
-          ) : null}
-          {error ? (
-            <div className="rounded-[22px] border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm text-rose-50">
-              {error}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="md:col-span-2 flex flex-wrap gap-3">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-full border border-cyan-300/20 bg-cyan-300/15 px-5 py-3 text-sm font-medium text-cyan-50 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-60"
+        <div className="page-action-row mt-6">
+          <Link
+            href={buildAuthAccessHref({ mode: "login", redirectTo: "/auth" })}
+            className="nav-pill nav-pill--accent px-5 py-3 text-sm font-medium"
           >
-            {isSubmitting ? "提交中..." : activeCopy.action}
-          </button>
+            前往登录页
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href={buildAuthAccessHref({ mode: "register", redirectTo: "/auth" })}
+            className="nav-pill px-5 py-3 text-sm font-medium"
+          >
+            前往注册页
+            <Sparkles className="h-4 w-4" />
+          </Link>
         </div>
-      </form>
+
+        <div className="auth-helper-grid mt-6 grid gap-3 md:grid-cols-2">
+          <div className="admin-subcard admin-subcard--muted auth-helper-card rounded-[22px] px-4 py-4">
+            <p className="landing-list-copy text-slate-300">
+              登录后会自动回到你的账号中心，并继续显示个人记录。
+            </p>
+          </div>
+          <div className="admin-subcard admin-subcard--muted auth-helper-card rounded-[22px] px-4 py-4">
+            <p className="landing-list-copy text-slate-300">
+              注册完成后会立刻生成独立学习空间，提交与成长数据会按账号保存。
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

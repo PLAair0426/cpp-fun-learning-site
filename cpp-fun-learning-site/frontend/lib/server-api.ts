@@ -53,26 +53,30 @@ async function fetchServerApi<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+function ensureArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export async function getHome(): Promise<HomeResponse> {
   const home = await fetchServerApi<HomeResponse>("/api/v1/home");
   return {
     ...home,
     releaseNotes: [
-      "课程地图已补全为多条主路线，可按阶段连续推进。",
-      "题库与课程讲解已经对齐，学完概念就能立即进入练习。",
-      "登录后会自动累计个人提交记录与成长数据。",
-      "首页推荐会围绕你的学习路径和最近进度持续更新。"
+      "课程地图已经覆盖多条引导式主线，方便按阶段逐步推进。",
+      "题目与课程保持联动，学完一个概念后就能立刻进入练习。",
+      "登录之后，提交记录、成长数据与最近进度都会按账号单独保存。",
+      "首页推荐会根据你当前所在路径与最近动作动态调整。"
     ],
     stack: {
-      web: "课程地图、题目页和学习路径已经串成一套连续的练习体验。",
-      judge: "支持先试跑、再正式提交，帮助你逐步验证代码结果。",
-      persistence: "登录后会按账号保存你的提交历史、成长数据和近期进度。"
+      web: "课程地图、题目页和学习路径已经连成一条连续的推进主线。",
+      judge: "你可以先试跑、再正式提交，更适合一步步验证代码逻辑。",
+      persistence: "登录后，提交历史、成长数据和最近进度都会稳定挂在自己的账号下。"
     }
   };
 }
 
 export async function getPaths(): Promise<PathSummary[]> {
-  return fetchServerApi<PathSummary[]>("/api/v1/paths");
+  return ensureArray(await fetchServerApi<PathSummary[] | null>("/api/v1/paths"));
 }
 
 export async function getPath(slug: string): Promise<PathDetail | null> {
@@ -87,7 +91,7 @@ export async function getPath(slug: string): Promise<PathDetail | null> {
 }
 
 export async function getProblems(): Promise<ProblemSummary[]> {
-  return fetchServerApi<ProblemSummary[]>("/api/v1/problems");
+  return ensureArray(await fetchServerApi<ProblemSummary[] | null>("/api/v1/problems"));
 }
 
 export async function getProgressOverview(): Promise<ProgressOverview> {
@@ -135,7 +139,8 @@ export async function getCurrentUser(): Promise<UserSummary | null> {
 
 export async function getMySubmissions(): Promise<UserSubmissionSummary[]> {
   try {
-    return await fetchServerApi<UserSubmissionSummary[]>("/api/v1/submissions");
+    const response = await fetchServerApi<UserSubmissionSummary[] | null>("/api/v1/submissions");
+    return ensureArray(response);
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return [];
@@ -160,7 +165,7 @@ export async function getAdminOverview(): Promise<AdminOverview | null> {
 
 export async function getAdminUsers(): Promise<AdminUserDetail[]> {
   try {
-    return await fetchServerApi<AdminUserDetail[]>("/api/v1/admin/users");
+    return ensureArray(await fetchServerApi<AdminUserDetail[] | null>("/api/v1/admin/users"));
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("API request failed: 403")) {
       return [];
@@ -174,7 +179,17 @@ export async function getAdminUsers(): Promise<AdminUserDetail[]> {
 
 export async function getAdminContent(): Promise<AdminContentCatalog | null> {
   try {
-    return await fetchServerApi<AdminContentCatalog>("/api/v1/admin/content");
+    const response = await fetchServerApi<AdminContentCatalog | null>("/api/v1/admin/content");
+    if (!response) {
+      return null;
+    }
+
+    return {
+      ...response,
+      paths: ensureArray(response.paths),
+      lessons: ensureArray(response.lessons),
+      problems: ensureArray(response.problems)
+    };
   } catch (error) {
     if (error instanceof Error && (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN")) {
       return null;
@@ -188,7 +203,7 @@ export async function getAdminContent(): Promise<AdminContentCatalog | null> {
 
 export async function getAdminActivity(): Promise<AdminActivityEntry[]> {
   try {
-    return await fetchServerApi<AdminActivityEntry[]>("/api/v1/admin/activity");
+    return ensureArray(await fetchServerApi<AdminActivityEntry[] | null>("/api/v1/admin/activity"));
   } catch (error) {
     if (error instanceof Error && (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN")) {
       return [];

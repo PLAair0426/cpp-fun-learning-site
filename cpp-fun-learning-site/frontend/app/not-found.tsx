@@ -3,10 +3,10 @@ import Link from "next/link";
 export default function NotFound() {
   return (
     <div className="panel-shell mx-auto mt-24 max-w-2xl rounded-[32px] px-8 py-12 text-center">
-      <p className="text-sm uppercase tracking-[0.4em] text-cyan-200/70">Signal Lost</p>
+      <p className="text-sm uppercase tracking-[0.4em] text-cyan-200/70">页面走丢了</p>
       <h1 className="mt-4 text-4xl font-semibold text-white">这个关卡暂时没有找到</h1>
       <p className="mt-4 text-base leading-7 text-slate-300">
-        可能是路径代号变更，或者这部分内容还在从原始课件资产里继续整理。
+        可能是路径代号已经变更，或者这部分内容还在根据原始课件继续整理。
       </p>
       <div className="mt-8 flex justify-center gap-3">
         <Link

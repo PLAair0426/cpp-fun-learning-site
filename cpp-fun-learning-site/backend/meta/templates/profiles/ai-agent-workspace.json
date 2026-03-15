@@ -1,6 +1,6 @@
-﻿{
+{
   "profile": "ai-agent-workspace",
-  "description": "閫傜敤浜?AI / Agent 鍗忎綔銆佹妧鑳芥矇娣€銆佸 Agent 宸ヤ綔娴併€佺煡璇嗗伐浠跺瀷椤圭洰銆?,
+  "description": "适用于 AI / Agent 工作区，强调技能、知识库、流程文档与自动化协作资产。",
   "variables": {
     "PROJECT_TYPE": "AI Agent Workspace",
     "PRIMARY_STACK": "Agent Workflow + Skills + Knowledge Base",
@@ -26,5 +26,3 @@
     ]
   }
 }
-
-

@@ -24,14 +24,14 @@ func Load() Config {
 	return Config{
 		AppEnv:          envOr("APP_ENV", "development"),
 		Port:            envOr("API_PORT", "8080"),
-		CORSOrigin:      envOr("CORS_ORIGIN", "http://localhost:3000"),
+		CORSOrigin:      envOr("CORS_ORIGIN", "http://localhost:3000,http://127.0.0.1:3000"),
 		PostgresDSN:     envOr("POSTGRES_DSN", ""),
 		RedisAddr:       envOr("REDIS_ADDR", ""),
 		Judge0URL:       envOr("JUDGE0_URL", ""),
 		EnableMockJudge: envOr("ENABLE_MOCK_JUDGE", "true") != "false",
 		SessionTTLHours: envIntOr("SESSION_TTL_HOURS", 720),
 		SessionCookie:   envOr("SESSION_COOKIE_NAME", "cppstudy_session"),
-		AdminName:       envOr("ADMIN_NAME", "Site Admin"),
+		AdminName:       envOr("ADMIN_NAME", "站点管理员"),
 		AdminEmail:      envOr("ADMIN_EMAIL", "admin@cppstudy.local"),
 		AdminPassword:   envOr("ADMIN_PASSWORD", "ChangeMe123!"),
 	}

@@ -4,3 +4,6 @@ Thumbs.db
 meta/generated/analysis/*.log
 meta/generated/**/*.log
 deployments/.web-dev.pid
+deployments/logs/
+api/*.log
+api/*.err.log

@@ -76,7 +76,7 @@ func (s *Server) handleAdminDeleteProblem(w http.ResponseWriter, r *http.Request
 		writeJSON(w, adminContentStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
-	_ = s.store.RecordAdminActivity(admin, "delete_problem", "problem", slug, "Removed problem from managed content")
+	_ = s.store.RecordAdminActivity(admin, "delete_problem", "problem", slug, "已从后台内容目录中移除这道题目。")
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":       true,
@@ -97,7 +97,7 @@ func (s *Server) handleAdminDeletePath(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, adminContentStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
-	_ = s.store.RecordAdminActivity(admin, "delete_path", "path", slug, "Removed path from managed content")
+	_ = s.store.RecordAdminActivity(admin, "delete_path", "path", slug, "已从后台内容目录中移除这条路径。")
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":       true,

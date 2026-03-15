@@ -16,6 +16,7 @@ type Store struct {
 	leaderboard []LeaderboardEntry
 	progress    ProgressOverview
 	adminLogs   []AdminActivityEntry
+	submissions map[string]SubmissionRecord
 	db          *pgxpool.Pool
 	redis       *redis.Client
 	usersByID   map[string]UserAccount
@@ -1808,6 +1809,7 @@ int main() {
 		problems:    problems,
 		leaderboard: leaderboard,
 		progress:    progress,
+		submissions: make(map[string]SubmissionRecord),
 		usersByID:   make(map[string]UserAccount),
 		usersByMail: make(map[string]memoryUser),
 		sessions:    make(map[string]SessionRecord),

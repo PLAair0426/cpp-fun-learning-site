@@ -1,18 +1,51 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   ArrowRight,
   BookOpenText,
-  Flame,
-  Layers3,
-  Radar,
+  CirclePlay,
+  ShieldCheck,
   Sparkles,
-  Trophy
+  Star,
+  Trophy,
+  Users
 } from "lucide-react";
-import { SectionTitle } from "../components/section-title";
+import { buildAuthAccessHref } from "../lib/auth-links";
+import {
+  EXPERIMENT_COOKIE_NAMES,
+  resolveHomeHeroVariant
+} from "../lib/experiments";
+import {
+  formatLearningTitle,
+  formatProblemDifficultyLabel
+} from "../lib/problem-labels";
 import { getHome, getPath, getProblems, getProgressOverview } from "../lib/server-api";
 
+const squadQuotes = [
+  {
+    name: "星火",
+    role: "冲榜玩家",
+    quote: "路径地图像学习导航图，打开之后就知道今天该做什么。"
+  },
+  {
+    name: "回声",
+    role: "社区队长",
+    quote: "课程、练习和记录连在一起之后，推进节奏顺了很多。"
+  },
+  {
+    name: "像素",
+    role: "新手学员",
+    quote: "我不用再翻很多页面找下一步，整个学习过程轻松了。"
+  }
+] as const;
+
 export default async function HomePage() {
-  const [home, progress, allProblems] = await Promise.all([
+  const cookieStore = await cookies();
+  const heroVariant = resolveHomeHeroVariant(
+    cookieStore.get(EXPERIMENT_COOKIE_NAMES.homeHero)?.value
+  );
+
+  const [home, progress, problems] = await Promise.all([
     getHome(),
     getProgressOverview(),
     getProblems()
@@ -22,330 +55,456 @@ export default async function HomePage() {
     await Promise.all(home.featuredPaths.map((path) => getPath(path.slug)))
   ).filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-  const currentPathDetail = await getPath(progress.currentPath.slug);
-  const nextLesson = currentPathDetail?.modules
-    .flatMap((module) => module.lessons)
-    .find((lesson) => lesson.title === progress.currentPath.nextLessonTitle);
-  const nextProblem = allProblems.find(
+  const nextProblem = problems.find(
     (problem) => problem.title === progress.currentPath.nextProblemTitle
   );
 
+  const heroStory =
+    heroVariant === "a"
+      ? {
+          eyebrow: "新学期学习面板",
+          titleTop: "把 C++ 学习",
+          titleAccent: "学得轻松，",
+          titleBottom: "练得踏实。",
+          description:
+            "课程路径、题目练习和个人进度都被整理进同一页里，让你一打开就能接上今天的节奏。"
+        }
+      : {
+          eyebrow: "学习路线已整理",
+          titleTop: "从第一节课开始，",
+          titleAccent: "每天都有",
+          titleBottom: "清楚的下一步。",
+          description:
+            "系统会把当前路径、下一节课和推荐练习摆在眼前，少花时间切换，多花时间真正学习。"
+        };
+
+  const featuredPaths = featuredPathDetails.slice(0, 3).map((path, index) => ({
+    slug: path.slug,
+    title: path.title,
+    subtitle: path.subtitle,
+    lessonCount: path.lessonCount,
+    challengeCount: path.challengeCount,
+    estimatedHours: path.estimatedHours,
+    reward: path.bossMission,
+    tags: path.focusTags.slice(0, 3),
+    mode: ["主线路径", "练习联动", "进阶挑战"][index] ?? "学习模块"
+  }));
+
+  const studyStats = [
+    {
+      value: `${progress.completedLessons}/${progress.totalLessons}`,
+      label: "课程进度"
+    },
+    {
+      value: `${progress.completedProblems}/${progress.totalProblems}`,
+      label: "练习完成"
+    },
+    {
+      value: `${progress.weeklyCompleted}/${progress.weeklyTarget}`,
+      label: "本周目标"
+    }
+  ] as const;
+
+  const spotlightLessons = home.featuredLessons.slice(0, 4);
+  const spotlightProblems = home.featuredProblems.slice(0, 4);
+  const leaderboardPreview = home.leaderboardPreview.slice(0, 3);
+
+  const experienceNotes = [
+    {
+      title: "主线更清楚",
+      body: home.stack.web,
+      icon: CirclePlay
+    },
+    {
+      title: "练习更顺手",
+      body: home.stack.judge,
+      icon: Trophy
+    },
+    {
+      title: "记录已隔离",
+      body: home.stack.persistence,
+      icon: ShieldCheck
+    }
+  ] as const;
+
   return (
-    <div className="space-y-8">
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.7fr)]">
-        <div className="panel-shell relative overflow-hidden rounded-[36px] px-6 py-7 sm:px-8 sm:py-8">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.2),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(250,204,21,0.14),transparent_26%)]" />
+    <div className="learn-home">
+      <section className="learn-hero">
+        <div className="learn-hero__copy">
+          <span className="learn-chip learn-chip--green">
+            <Sparkles className="h-4 w-4" />
+            {heroStory.eyebrow}
+          </span>
 
-          <div className="relative">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs uppercase tracking-[0.32em] text-cyan-100">
-                {home.hero.eyebrow}
-              </span>
-              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-200">
-                当前路线：{progress.currentPath.title}
-              </span>
-            </div>
+          <h1 className="learn-hero__title">
+            {heroStory.titleTop}
+            <span className="learn-hero__accent">{heroStory.titleAccent}</span>
+            {heroStory.titleBottom}
+          </h1>
 
-            <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {home.hero.title}
-            </h1>
-            <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300 sm:text-lg">
-              {home.hero.subtitle}
-            </p>
+          <p className="learn-hero__body">{heroStory.description}</p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href={home.hero.primaryAction.href}
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/12 px-5 py-3 text-sm font-medium text-cyan-50 transition hover:bg-cyan-300/20"
-              >
-                {home.hero.primaryAction.label}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href={home.hero.secondaryAction.href}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-slate-100 transition hover:border-white/20 hover:bg-white/5"
-              >
-                {home.hero.secondaryAction.label}
-                <Radar className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/auth"
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm font-medium text-emerald-50 transition hover:bg-emerald-300/15"
-              >
-                登录 / 注册
-                <Sparkles className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {home.hero.metrics.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-[24px] border border-white/8 bg-white/5 px-4 py-4 backdrop-blur"
-                >
-                  <p className="text-xs uppercase tracking-[0.32em] text-slate-400">{item.label}</p>
-                  <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="panel-shell rounded-[30px] px-6 py-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-emerald-100">
-                <Flame className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.36em] text-emerald-200/80">
-                  Daily Quest
-                </p>
-                <h2 className="mt-1 text-xl font-semibold text-white">{home.dailyQuest.title}</h2>
-              </div>
-            </div>
-
-            <p className="mt-4 text-sm leading-7 text-slate-300">{home.dailyQuest.objective}</p>
-
-            <div className="mt-5 rounded-[24px] border border-white/8 bg-white/4 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">今日奖励</p>
-              <p className="mt-2 text-lg font-medium text-white">{home.dailyQuest.reward}</p>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {home.dailyQuest.tips.map((tip) => (
-                <div
-                  key={tip}
-                  className="rounded-[20px] border border-white/8 bg-white/5 px-4 py-3 text-sm leading-7 text-slate-300"
-                >
-                  {tip}
-                </div>
-              ))}
-            </div>
+          <div className="learn-hero__actions">
+            <Link
+              href={buildAuthAccessHref({ mode: "register", redirectTo: "/paths" })}
+              className="learn-button learn-button--primary"
+            >
+              {heroVariant === "a" ? "开始学习" : "立即进入"}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/paths"
+              className="learn-button learn-button--secondary"
+            >
+              浏览学习路径
+            </Link>
           </div>
 
-          <div className="panel-shell rounded-[30px] px-6 py-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-cyan-100">
-                <Trophy className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.36em] text-cyan-200/80">
-                  Progress Snapshot
-                </p>
-                <h2 className="mt-1 text-xl font-semibold text-white">个人成长面板</h2>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">累计 XP</p>
-                <p className="mt-2 text-3xl font-semibold text-white">{progress.xp}</p>
-              </div>
-              <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">连续学习</p>
-                <p className="mt-2 text-3xl font-semibold text-white">{progress.streak} 天</p>
-              </div>
-              <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">课程进度</p>
-                <p className="mt-2 text-3xl font-semibold text-white">
-                  {progress.completedLessons}/{progress.totalLessons}
-                </p>
-              </div>
-              <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">题目进度</p>
-                <p className="mt-2 text-3xl font-semibold text-white">
-                  {progress.completedProblems}/{progress.totalProblems}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3">
-              <Link
-                href={
-                  nextLesson
-                    ? `/paths/${progress.currentPath.slug}#lesson-${nextLesson.id}`
-                    : `/paths/${progress.currentPath.slug}`
-                }
-                className="rounded-[22px] border border-white/8 bg-white/5 p-4 transition hover:bg-white/8"
-              >
-                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">下一节课</p>
-                <p className="mt-2 text-sm leading-7 text-white">{progress.currentPath.nextLessonTitle}</p>
-              </Link>
-              <Link
-                href={nextProblem ? `/problems/${nextProblem.slug}` : "/problems"}
-                className="rounded-[22px] border border-white/8 bg-white/5 p-4 transition hover:bg-white/8"
-              >
-                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">下一道练习</p>
-                <p className="mt-2 text-sm leading-7 text-white">{progress.currentPath.nextProblemTitle}</p>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
-          <SectionTitle
-            badge="Learning Support"
-            title="学习、练习和成长记录已经串成一条连续反馈链路"
-            description="这里展示的是学习者真正会感知到的能力：看课、试跑、正式提交与个人记录沉淀。"
-          />
-
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
-              <div className="flex items-center gap-3 text-cyan-100">
-                <Layers3 className="h-5 w-5" />
-                <p className="text-sm font-medium">学习入口</p>
-              </div>
-              <p className="mt-3 text-sm leading-7 text-slate-300">{home.stack.web}</p>
-            </div>
-            <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
-              <div className="flex items-center gap-3 text-violet-100">
-                <Radar className="h-5 w-5" />
-                <p className="text-sm font-medium">练习反馈</p>
-              </div>
-              <p className="mt-3 text-sm leading-7 text-slate-300">{home.stack.judge}</p>
-            </div>
-            <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
-              <div className="flex items-center gap-3 text-amber-100">
-                <Trophy className="h-5 w-5" />
-                <p className="text-sm font-medium">个人记录</p>
-              </div>
-              <p className="mt-3 text-sm leading-7 text-slate-300">{home.stack.persistence}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel-shell rounded-[34px] px-6 py-7">
-          <SectionTitle
-            badge="Latest Updates"
-            title="最近补全的学习内容"
-            description="这里记录课程、题库和个人学习能力方面的最新完善内容。"
-          />
-
-          <div className="mt-6 grid gap-3">
-            {home.releaseNotes.map((item, index) => (
-              <div
-                key={`${item}-${index}`}
-                className="flex gap-3 rounded-[22px] border border-white/8 bg-white/5 px-4 py-4"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-sm font-semibold text-cyan-100">
-                  {index + 1}
-                </div>
-                <p className="flex-1 text-sm leading-7 text-slate-300">{item}</p>
+          <div className="learn-stat-strip">
+            {studyStats.map((item) => (
+              <div key={item.label} className="learn-stat-strip__item">
+                <p className="learn-stat-strip__value">{item.value}</p>
+                <p className="learn-stat-strip__label">{item.label}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      <section className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
-        <SectionTitle
-          badge="Featured Paths"
-          title="先选路线，再按模块推进"
-          description="每条路线都带着推荐课程与练习，你可以从当前基础直接继续。"
-        />
+        <div className="learn-progress-board">
+          <div className="learn-floating-badge learn-floating-badge--peach" aria-hidden="true">
+            <Trophy className="h-5 w-5" />
+          </div>
+          <div className="learn-floating-badge learn-floating-badge--yellow" aria-hidden="true">
+            <Star className="h-5 w-5 fill-current" />
+          </div>
+          <div className="learn-floating-badge learn-floating-badge--blue" aria-hidden="true">
+            <Users className="h-5 w-5" />
+          </div>
 
-        <div className="mt-6 grid gap-5 xl:grid-cols-2">
-          {featuredPathDetails.map((path) => (
-            <article key={path.slug} className="rounded-[30px] border border-white/8 bg-white/5 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-400">{path.theme}</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">{path.title}</h2>
-                  <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">{path.subtitle}</p>
-                </div>
-                <Link
-                  href={`/paths/${path.slug}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs text-slate-100 transition hover:border-white/20 hover:bg-white/5"
-                >
-                  查看路线
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-[22px] border border-white/8 bg-slate-950/35 p-4">
-                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">预计时长</p>
-                  <p className="mt-2 text-lg font-medium text-white">{path.estimatedHours} 小时</p>
-                </div>
-                <div className="rounded-[22px] border border-white/8 bg-slate-950/35 p-4">
-                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">课程数量</p>
-                  <p className="mt-2 text-lg font-medium text-white">{path.lessonCount}</p>
-                </div>
-                <div className="rounded-[22px] border border-white/8 bg-slate-950/35 p-4">
-                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">练习数量</p>
-                  <p className="mt-2 text-lg font-medium text-white">{path.challengeCount}</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
-        <SectionTitle
-          badge="Featured Problems"
-          title="从首页也能直接切进练习"
-          description="挑一道代表题试跑或正式提交，系统会按你的账号累计记录。"
-        />
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {home.featuredProblems.map((problem) => (
-            <Link
-              key={problem.slug}
-              href={`/problems/${problem.slug}`}
-              className="group rounded-[26px] border border-white/8 bg-white/5 p-5 transition hover:border-cyan-300/20 hover:bg-white/8"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">{problem.type}</p>
-                <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-slate-200">
-                  {problem.difficulty}
-                </span>
-              </div>
-              <h3 className="mt-4 text-xl font-semibold text-white">{problem.title}</h3>
-              <p className="mt-3 min-h-20 text-sm leading-7 text-slate-300">{problem.mission}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {problem.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full border border-white/8 bg-slate-950/45 px-2.5 py-1 text-xs text-slate-300"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-cyan-100 transition group-hover:gap-3">
-                进入练习
-                <ArrowRight className="h-4 w-4" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel-shell rounded-[34px] px-6 py-7 sm:px-8">
-        <SectionTitle
-          badge="Featured Lessons"
-          title="关键课程入口"
-          description="不想先看完整路线时，也可以从这里直接切入重点课程。"
-        />
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {home.featuredLessons.map((lesson) => (
-            <div key={lesson.id} className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-              <div className="flex items-center gap-3 text-cyan-100">
+          <div className="learn-progress-board__inner">
+            <div className="learn-progress-board__top">
+              <div className="learn-progress-board__icon">
                 <BookOpenText className="h-5 w-5" />
-                <p className="text-sm font-medium">{lesson.module}</p>
               </div>
-              <p className="mt-3 text-lg font-semibold text-white">{lesson.title}</p>
-              <p className="mt-2 text-sm text-slate-400">
-                {lesson.duration} · {lesson.difficulty}
-              </p>
-              <p className="mt-3 text-sm leading-7 text-slate-300">{lesson.objective}</p>
+              <div>
+                <p className="learn-kicker">当前主线路径</p>
+                <h2 className="learn-progress-board__title">{progress.currentPath.title}</h2>
+                <p className="learn-progress-board__copy">
+                  已完成 {progress.completedLessons} 节课程 · 还有{" "}
+                  {progress.currentPath.remainingMissions} 个任务待推进
+                </p>
+              </div>
             </div>
-          ))}
+
+            <div className="learn-progress-block">
+              <div className="learn-progress-block__meta">
+                <span>学习进度</span>
+                <strong>{progress.currentPath.progressPercent}%</strong>
+              </div>
+              <div className="learn-progress-block__track" aria-hidden="true">
+                <span
+                  className="learn-progress-block__fill"
+                  style={{ width: `${progress.currentPath.progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="learn-progress-board__focus">
+              <div className="learn-mini-note">
+                <span>下一节课</span>
+                <strong>{formatLearningTitle(progress.currentPath.nextLessonTitle)}</strong>
+              </div>
+              <div className="learn-mini-note learn-mini-note--soft">
+                <span>下一关挑战</span>
+                <strong>
+                  {formatLearningTitle(
+                    nextProblem?.title ?? progress.currentPath.nextProblemTitle
+                  )}
+                </strong>
+              </div>
+            </div>
+
+            <Link
+              href={`/paths/${progress.currentPath.slug}`}
+              className="learn-button learn-button--primary learn-button--full"
+            >
+              继续当前学习
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="learn-section-panel learn-section-panel--split">
+        <div>
+          <div className="learn-section-header">
+            <span className="learn-chip learn-chip--blue">热门路径</span>
+            <h2 className="learn-section-header__title">主线路径已经按学习节奏整理好了</h2>
+            <p className="learn-section-header__body">
+              从基础、语法到练习挑战，都能从当前位置自然接上。
+            </p>
+          </div>
+
+          <div className="learn-ledger">
+            {featuredPaths.map((path, index) => (
+              <Link key={path.slug} href={`/paths/${path.slug}`} className="learn-ledger__row">
+                <div className="learn-ledger__main">
+                  <div className="learn-ledger__top">
+                    <span
+                      className={`learn-ledger__tag ${
+                        index === 0
+                          ? "learn-ledger__tag--green"
+                          : index === 1
+                            ? "learn-ledger__tag--blue"
+                            : "learn-ledger__tag--peach"
+                      }`}
+                    >
+                      {path.mode}
+                    </span>
+                    <span className="learn-ledger__meta">
+                      {path.lessonCount} 节课 · {path.challengeCount} 道挑战 · {path.estimatedHours} 小时
+                    </span>
+                  </div>
+                  <h3 className="learn-ledger__title">{path.title}</h3>
+                  <p className="learn-ledger__copy">{path.subtitle}</p>
+                  <div className="learn-ledger__chips">
+                    {path.tags.map((tag) => (
+                      <span key={tag} className="learn-tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="learn-ledger__aside">
+                  <p className="learn-ledger__reward-label">完成后你会得到</p>
+                  <p className="learn-ledger__reward">{path.reward}</p>
+                  <span className="learn-ledger__action">
+                    进入路径
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <aside className="learn-aside-panel">
+          <span className="learn-chip learn-chip--peach">今日任务</span>
+          <h3 className="learn-aside-panel__title">{home.dailyQuest.title}</h3>
+          <p className="learn-aside-panel__body">{home.dailyQuest.objective}</p>
+
+          <div className="learn-aside-panel__reward">
+            <span>完成奖励</span>
+            <strong>{home.dailyQuest.reward}</strong>
+          </div>
+
+          <div className="learn-aside-panel__list">
+            {home.dailyQuest.tips.slice(0, 2).map((tip) => (
+              <p key={tip}>{tip}</p>
+            ))}
+            {progress.recommendedActions.slice(0, 2).map((action) => (
+              <p key={action}>{action}</p>
+            ))}
+          </div>
+
+          <Link href="/problems" className="learn-button learn-button--secondary learn-button--full">
+            去做一题热身
+          </Link>
+        </aside>
+      </section>
+
+      <section className="learn-section-panel">
+        <div className="learn-section-header">
+          <span className="learn-chip learn-chip--green">内容预览</span>
+          <h2 className="learn-section-header__title">课程安排和练习任务放在同一张学习桌上</h2>
+          <p className="learn-section-header__body">
+            不需要来回切换页面，学完一个点马上就能接一题。
+          </p>
+        </div>
+
+        <div className="learn-two-column">
+          <div className="learn-column">
+            <div className="learn-column__header">
+              <h3>推荐课程</h3>
+              <p>从当前阶段最值得继续的内容开始。</p>
+            </div>
+
+            <div className="learn-course-list">
+              {spotlightLessons.map((lesson) => (
+                <div key={lesson.id} className="learn-course-list__row">
+                  <div className="learn-course-list__main">
+                    <p className="learn-course-list__title">
+                      {formatLearningTitle(lesson.title)}
+                    </p>
+                    <p className="learn-course-list__meta">
+                      {lesson.module} · {lesson.duration}
+                    </p>
+                  </div>
+                  <span className="learn-pill-badge">
+                    {formatProblemDifficultyLabel(lesson.difficulty)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="learn-column">
+            <div className="learn-column__header">
+              <h3>推荐练习</h3>
+              <p>边学边练，推进节奏会更稳。</p>
+            </div>
+
+            <div className="learn-course-list">
+              {spotlightProblems.map((problem) => (
+                <div key={problem.slug} className="learn-course-list__row">
+                  <div className="learn-course-list__main">
+                    <p className="learn-course-list__title">
+                      {formatLearningTitle(problem.title)}
+                    </p>
+                    <p className="learn-course-list__meta">{problem.mission}</p>
+                  </div>
+                  <span className="learn-pill-badge learn-pill-badge--blue">
+                    {formatProblemDifficultyLabel(problem.difficulty)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="learn-note-ribbon">
+          {experienceNotes.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div key={item.title} className="learn-note-ribbon__item">
+                <div className="learn-note-ribbon__icon">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="learn-note-ribbon__title">{item.title}</p>
+                  <p className="learn-note-ribbon__body">{item.body}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="learn-section-panel">
+        <div className="learn-section-header">
+          <span className="learn-chip learn-chip--blue">学习反馈</span>
+          <h2 className="learn-section-header__title">当布局更清楚，学习者更愿意继续推进</h2>
+          <p className="learn-section-header__body">
+            反馈、排行和账号隔离信息都放在一起，方便判断下一步。
+          </p>
+        </div>
+
+        <div className="learn-two-column">
+          <div className="learn-column">
+            <div className="learn-column__header">
+              <h3>学习者怎么说</h3>
+              <p>我们更看重顺手、清楚和舒服，而不是堆很多复杂装饰。</p>
+            </div>
+
+            <div className="learn-feedback-list">
+              {squadQuotes.map((quote, index) => (
+                <article key={quote.name} className="learn-feedback-list__row">
+                  <div className="learn-feedback-list__stars" aria-hidden="true">
+                    <Star className="h-4 w-4 fill-current" />
+                    <Star className="h-4 w-4 fill-current" />
+                    <Star className="h-4 w-4 fill-current" />
+                    <Star className="h-4 w-4 fill-current" />
+                    <Star className="h-4 w-4 fill-current" />
+                  </div>
+                  <p className="learn-feedback-list__quote">“{quote.quote}”</p>
+                  <div className="learn-feedback-list__person">
+                    <span>0{index + 1}</span>
+                    <strong>{quote.name}</strong>
+                    <em>{quote.role}</em>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="learn-column">
+            <div className="learn-column__header">
+              <h3>本周活跃榜</h3>
+              <p>经验值、连击和头衔会跟随账号一起累计。</p>
+            </div>
+
+            <div className="learn-ranking-list">
+              {leaderboardPreview.length > 0 ? (
+                leaderboardPreview.map((entry) => (
+                  <div key={`${entry.rank}-${entry.name}`} className="learn-ranking-list__row">
+                    <span className="learn-ranking-list__rank">#{entry.rank}</span>
+                    <div className="learn-ranking-list__main">
+                      <strong>{entry.name}</strong>
+                      <p>
+                        {entry.title} · {entry.xp} 经验值 · 连击 {entry.streak} 天
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="learn-ranking-list__empty">
+                  本周排行榜准备中，完成练习后就会进入统计。
+                </div>
+              )}
+            </div>
+
+            <div className="learn-isolation-strip">
+              <div className="learn-isolation-strip__icon">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="learn-isolation-strip__title">个人记录会按账号隔离保存</p>
+                <p className="learn-isolation-strip__body">
+                  登录后，你的提交历史、成长记录和后台权限会稳定挂在自己的账号下。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="learn-cta-strip">
+        <div>
+          <span className="learn-chip learn-chip--green">开始学习</span>
+          <h2 className="learn-cta-strip__title">今天就把学习节奏重新接起来</h2>
+          <p className="learn-cta-strip__body">
+            创建账号后，你可以继续当前路径、保存个人记录，并在需要时进入后台管理内容。
+          </p>
+
+          <div className="learn-cta-strip__actions">
+            <Link
+              href={buildAuthAccessHref({ mode: "register", redirectTo: "/paths" })}
+              className="learn-button learn-button--primary"
+            >
+              创建学习账号
+            </Link>
+            <Link href="/problems" className="learn-button learn-button--secondary">
+              先看题目练习
+            </Link>
+          </div>
+        </div>
+
+        <div className="learn-cta-strip__meta">
+          <div className="learn-cta-strip__meta-item">
+            <span>当前路径</span>
+            <strong>{progress.currentPath.title}</strong>
+          </div>
+          <div className="learn-cta-strip__meta-item">
+            <span>连续学习</span>
+            <strong>{progress.streak} 天</strong>
+          </div>
+          <div className="learn-cta-strip__meta-item">
+            <span>推荐动作</span>
+            <strong>
+              {progress.recommendedActions[0] ?? home.releaseNotes[0] ?? "继续下一节课程"}
+            </strong>
+          </div>
         </div>
       </section>
     </div>

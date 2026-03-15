@@ -123,9 +123,9 @@ func (s *Store) ListAdminActivity(limit int) []AdminActivityEntry {
 	defer s.mu.RUnlock()
 
 	if len(s.adminLogs) <= limit {
-		return append([]AdminActivityEntry(nil), s.adminLogs...)
+		return append([]AdminActivityEntry{}, s.adminLogs...)
 	}
-	return append([]AdminActivityEntry(nil), s.adminLogs[:limit]...)
+	return append([]AdminActivityEntry{}, s.adminLogs[:limit]...)
 }
 
 func (s *Store) RecordAdminActivity(actor UserAccount, action, targetType, targetKey, detail string) error {
